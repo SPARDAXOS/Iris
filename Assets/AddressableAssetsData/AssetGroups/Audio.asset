@@ -17,16 +17,6 @@ MonoBehaviour:
     m_SerializedData: []
   m_GUID: 0d16071132e1c004292e19dde200260a
   m_SerializeEntries:
-  - m_GUID: 71e8ee0c84d33504f8f0afee09343cf0
-    m_Address: Assets/Audio/SFX/Success.wav
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 18447feda8e313d4ebf6b3a32122e8fe
-    m_Address: Assets/Audio/Tracks/TestTrack.wav
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2fb473e22f145464dac6fefef1cc9b24
     m_Address: Assets/ScriptableObjects/SFXBundle.asset
     m_ReadOnly: 0

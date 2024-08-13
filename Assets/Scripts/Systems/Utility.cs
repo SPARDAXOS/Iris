@@ -18,7 +18,7 @@ namespace MyUtility {
             Debug.Log("[" + Time.frameCount + "]     " + mesage);
         }
         public static void Warning(object mesage) {
-            //Debug.LogWarning("[" + Time.frameCount + "]     " + mesage);
+            Debug.LogWarning("[" + Time.frameCount + "]     " + mesage);
         }
         public static void Error(object mesage) {
             Debug.LogError("[" + Time.frameCount + "]     " + mesage);

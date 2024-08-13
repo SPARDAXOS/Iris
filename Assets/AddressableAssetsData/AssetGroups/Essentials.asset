@@ -41,18 +41,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Essential
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: b4521819954f615439205edb4f2b5470
-    m_Address: Assets/Prefabs/GUI/CreditsMenu.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a2f311f25bb3aca4c861b7331dda5529
-    m_Address: Assets/Prefabs/GUI/OptionsMenu.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: be381d9363e5ba740af803f4b299a4eb
     m_Address: Assets/Prefabs/Systems/Netcode.prefab
     m_ReadOnly: 0
@@ -61,12 +49,6 @@ MonoBehaviour:
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 4b99e44ff497bd8429bf4ce966e6ede8
     m_Address: Assets/Prefabs/Systems/EventSystem.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 0dff06f1bab76b1498fa7e3e689c4e3a
-    m_Address: Assets/Prefabs/GUI/LevelSelectMenu.prefab
     m_ReadOnly: 0
     m_SerializedLabels:
     - Essential
@@ -101,18 +83,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Essential
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 82457f23a5188024bbea595e417cc898
-    m_Address: Assets/Prefabs/GUI/HUD_Daredevil.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 458a053b5f2aa3a4eb23d0b48c9bd0e3
-    m_Address: Assets/Prefabs/GUI/HUD_Coordinator.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 2351cfb60c7d7ba499a5bea49de3bfde
     m_Address: Assets/Prefabs/GUI/LoadingScreen.prefab
     m_ReadOnly: 0
@@ -125,20 +95,26 @@ MonoBehaviour:
     m_SerializedLabels:
     - Essential
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 02f79d80252b40b4bb55bea42a24c25f
-    m_Address: Assets/Prefabs/GUI/RoleSelectionMenu.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - Essential
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: db654b0119727414f8386d614817d500
     m_Address: Assets/Prefabs/Entities/MainCamera.prefab
     m_ReadOnly: 0
     m_SerializedLabels:
     - Essential
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 03eedcf87c65886409fb1279ef99948d
-    m_Address: Assets/Prefabs/Systems/ScoreSystem.prefab
+  - m_GUID: 7033fbcea30b3f54fb460118d091bfda
+    m_Address: Assets/Prefabs/GUI/MainHUD.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - Essential
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a04851226c41d3a4da99924257d05ff1
+    m_Address: Assets/Prefabs/Levels/MainLevel.prefab
+    m_ReadOnly: 0
+    m_SerializedLabels:
+    - LevelsBundle
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a595f86ef4fd63741ad93ede935d0e5a
+    m_Address: Assets/Prefabs/Entities/Player2.prefab
     m_ReadOnly: 0
     m_SerializedLabels:
     - Essential

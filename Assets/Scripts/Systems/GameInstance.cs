@@ -6,6 +6,8 @@ using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEditor;
 using Unity.Services.Authentication;
 using UnityEngine.EventSystems;
+using Unity.Netcode;
+using Unity.VisualScripting;
 
 public class GameInstance : MonoBehaviour {
 
@@ -17,11 +19,7 @@ public class GameInstance : MonoBehaviour {
     public enum GameState {
         ERROR = 0,
         MAIN_MENU,
-        OPTIONS_MENU,
-        CREDITS_MENU,
         CONNECTION_MENU,
-        ROLE_SELECT_MENU,
-        LEVEL_SELECT_MENU,
         WIN_MENU,
         LOSE_MENU,
         PLAYING,
@@ -49,9 +47,7 @@ public class GameInstance : MonoBehaviour {
     private bool gameStarted = false;
     private bool gamePaused = false;
 
-    private bool powerSavingMode = false;
-    private int menusFrameTarget = 20;
-    private int powerSavingFrameTarget = 30;
+    private int menusFrameTarget = 60;
     private int gameplayFrameTarget = -1; //RefreshRate
 
     private AsyncOperationHandle<IList<GameObject>> loadedAssetsHandle;
@@ -61,21 +57,19 @@ public class GameInstance : MonoBehaviour {
 
     //Entities
     private GameObject soundSystem;
-    private GameObject scoreSystem;
     private GameObject eventSystem;
     private GameObject netcode;
 
-    private GameObject player;
-    private GameObject daredevilHUD;
-    private GameObject coordinatorHUD;
+    private GameObject player1Asset;
+    private GameObject player2Asset;
+
+    private GameObject player1;
+    private GameObject player2;
+    private GameObject mainHUD;
 
     private GameObject mainCamera;
     private GameObject mainMenu;
-    private GameObject optionsMenu;
-    private GameObject creditsMenu;
     private GameObject connectionMenu;
-    private GameObject roleSelectMenu;
-    private GameObject levelSelectMenu;
     private GameObject winMenu;
     private GameObject loseMenu;
 
@@ -87,21 +81,19 @@ public class GameInstance : MonoBehaviour {
     private GameObject rpcManagement;
     private RPCManagement rpcManagementScript;
     private SoundSystem soundSystemScript;
-    private ScoreSystem scoreSystemScript;
     private LevelManagement levelManagementScript = new LevelManagement();
-    private Player playerScript;
+    private Player player1Script;
+    private Player player2Script;
+    private NetworkObject player1NetworkObject;
+    private NetworkObject player2NetworkObject;
 
-    private DaredevilHUD daredevilHUDScript;
-    private CoordinatorHUD coordinatorHUDScript;
+    private MainHUD mainHUDScript;
+
 
     private MainCamera mainCameraScript;
     private Netcode netcodeScript;
     private MainMenu mainMenuScript;
-    private OptionsMenu optionsMenuScript;
-    private CreditsMenu creditsMenuScript;
     private ConnectionMenu connectionMenuScript;
-    private RoleSelectMenu roleSelectMenuScript;
-    private LevelSelectMenu levelSelectMenuScript;
     private FadeTransition fadeTransitionScript;
     private LoadingScreen loadingScreenScript;
 
@@ -158,15 +150,108 @@ public class GameInstance : MonoBehaviour {
         assetsLoadingInProgress = !loadedAssetsHandle.IsDone;
         return loadedAssetsHandle.IsDone;
     }
+    private void ProcessLoadedAsset(GameObject asset) {
+        if (!asset)
+            return;
 
+        if (asset.CompareTag("Player1")) {
+            player1Asset = asset;
+        }
+        else if (asset.CompareTag("Player2")) {
+            player2Asset = asset;
+        }
+        else if (asset.CompareTag("MainCamera")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            mainCamera = Instantiate(asset);
+            mainCameraScript = mainCamera.GetComponent<MainCamera>();
+            mainCameraScript.Initialize(this);
+            mainCamera.transform.position = new Vector3(0.0f, 0.0f, -10.0f);
 
-    public static Quaternion GetGyroRotation() {
-        return new Quaternion(0.5f, 0.5f, -0.5f, 0.5f) * Input.gyro.attitude * new Quaternion(0, 0, 1, 0);
+            //mainCameraScript.SetPlayerReference(player1Script); //Cant guarantee order!
+            Validate(mainCameraScript, "MainCamera component is missing on entity!", ValidationLevel.ERROR, true);
+        }
+        else if (asset.CompareTag("SoundSystem")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            soundSystem = Instantiate(asset);
+            soundSystemScript = soundSystem.GetComponent<SoundSystem>();
+            soundSystemScript.Initialize(this);
+            Validate(soundSystemScript, "SoundSystem component is missing on entity!", ValidationLevel.ERROR, true);
+        }
+        else if (asset.CompareTag("RPCManagement")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            rpcManagement = Instantiate(asset);
+            rpcManagementScript = rpcManagement.GetComponent<RPCManagement>();
+            rpcManagementScript.Initialize(this);
+            Validate(rpcManagementScript, "RpcManagement component is missing on entity!", ValidationLevel.ERROR, true);
+        }
+        else if (asset.CompareTag("EventSystem")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            eventSystem = Instantiate(asset);
+        }
+        else if (asset.CompareTag("Netcode")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            netcode = Instantiate(asset);
+            netcodeScript = netcode.GetComponent<Netcode>();
+            netcodeScript.Initialize(this);
+            Validate(netcodeScript, "Netcode component is missing on entity!", ValidationLevel.ERROR, true);
+        }
+        else if (asset.CompareTag("MainMenu")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            mainMenu = Instantiate(asset);
+            mainMenuScript = mainMenu.GetComponent<MainMenu>();
+            mainMenuScript.Initialize(this);
+            Validate(mainMenuScript, "MainMenu component is missing on entity!", ValidationLevel.ERROR, true);
+        }
+        else if (asset.CompareTag("ConnectionMenu")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            connectionMenu = Instantiate(asset);
+            connectionMenuScript = connectionMenu.GetComponent<ConnectionMenu>();
+            Validate(connectionMenuScript, "ConnectionMenu component is missing on entity!", ValidationLevel.ERROR, true);
+            connectionMenuScript.Initialize(this);
+        }
+        else if (asset.CompareTag("LoseMenu")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            loseMenu = Instantiate(asset);
+        }
+        else if (asset.CompareTag("WinMenu")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            winMenu = Instantiate(asset);
+        }
+        else if (asset.CompareTag("MainHUD")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            mainHUD = Instantiate(asset);
+            mainHUDScript = mainHUD.GetComponent<MainHUD>();
+            mainHUDScript.Initialize(this);
+        }
+        else if (asset.CompareTag("PauseMenu")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            pauseMenu = Instantiate(asset);
+        }
+        else if (asset.CompareTag("FadeTransition")) {
+            if (debugging)
+                Log("Started creating " + asset.name + " entity");
+            fadeTransition = Instantiate(asset);
+            fadeTransitionScript = fadeTransition.GetComponent<FadeTransition>();
+            fadeTransitionScript.Initialize(this);
+        }
+        else
+            Warning("Loaded an asset that was not recognized!\n[" + asset.name + "]");
     }
+
+
     private void SetupApplicationInitialSettings() {
-        Input.gyro.enabled = true;
         deviceResolution = Screen.currentResolution;
-        Input.gyro.updateInterval = 0.0167f; //60Hz
         if (debugging) {
             Log("Application started on device.");
             Log("Device information:\nScreen Width: [" + deviceResolution.width 
@@ -221,8 +306,8 @@ public class GameInstance : MonoBehaviour {
         //ADD THE REST OF THE ENTITIES ! CLEAN UP
 
         //Needs reworking after networking solution
-        if (playerScript) //Temp
-            playerScript.CleanUp("Player cleaned up successfully!");
+        if (player1Script) //Temp
+            player1Script.CleanUp("Player cleaned up successfully!");
 
 
         mainCameraScript.CleanUp("MainCamera cleaned up successfully!");
@@ -231,23 +316,20 @@ public class GameInstance : MonoBehaviour {
 
 
         //Needed to guarantee destruction of all entities before attempting to release resources.
-        ValidateAndDestroy(player);
+        ValidateAndDestroy(player1);
+        ValidateAndDestroy(player2);
         ValidateAndDestroy(mainCamera);
         ValidateAndDestroy(soundSystem);
         ValidateAndDestroy(eventSystem);
-        ValidateAndDestroy(daredevilHUD);
-        ValidateAndDestroy(coordinatorHUD);
+
+        ValidateAndDestroy(mainHUD);
         ValidateAndDestroy(fadeTransition);
         ValidateAndDestroy(loadingScreen);
 
         ValidateAndDestroy(rpcManagement);
         ValidateAndDestroy(netcode);
         ValidateAndDestroy(mainMenu);
-        ValidateAndDestroy(optionsMenu);
-        ValidateAndDestroy(creditsMenu);
         ValidateAndDestroy(connectionMenu);
-        ValidateAndDestroy(levelSelectMenu);
-        ValidateAndDestroy(roleSelectMenu);
         ValidateAndDestroy(pauseMenu);
         ValidateAndDestroy(winMenu);
         ValidateAndDestroy(loseMenu);
@@ -339,20 +421,14 @@ public class GameInstance : MonoBehaviour {
             case GameState.PLAYING:
                 UpdatePlayingState();
                 break;
-            case GameState.LEVEL_SELECT_MENU:
-                UpdateLevelSelectMenuState();
-                break;
             case GameState.CONNECTION_MENU:
                 UpdateConnectionMenuState();
                 break;
         }
     }
     private void SetupDependencies() {
-        mainCameraScript.SetPlayerReference(playerScript);
-        daredevilHUDScript.SetPlayerReference(playerScript);
-        coordinatorHUDScript.SetPlayerReference(playerScript);
-        playerScript.SetCoordinatorHUD(coordinatorHUDScript);
-        playerScript.SetDaredevilHUD(daredevilHUDScript);
+        //mainCameraScript.SetPlayerReference(player1Script);
+
 
         if (debugging)
             Log("All dependencies has been setup!");
@@ -385,20 +461,8 @@ public class GameInstance : MonoBehaviour {
             case GameState.MAIN_MENU:
                 SetupMainMenuState();
                 break;
-            case GameState.OPTIONS_MENU:
-                SetupOptionsMenuState();
-                break;
-            case GameState.CREDITS_MENU:
-                SetupCreditsMenuState();
-                break;
-            case GameState.LEVEL_SELECT_MENU:
-                SetupLevelSelectMenuState();
-                break;
             case GameState.CONNECTION_MENU:
                 SetupConnectionMenuState();
-                break;
-            case GameState.ROLE_SELECT_MENU:
-                SetupRoleSelectMenuState();
                 break;
             case GameState.WIN_MENU:
                 SetupWinMenuState();
@@ -420,21 +484,8 @@ public class GameInstance : MonoBehaviour {
             case GameState.MAIN_MENU:
                 fadeTransitionScript.StartTransition(SetupMainMenuState);
                 break;
-            case GameState.OPTIONS_MENU:
-                fadeTransitionScript.StartTransition(SetupOptionsMenuState);
-                break;
-            case GameState.CREDITS_MENU:
-                fadeTransitionScript.StartTransition(SetupCreditsMenuState);
-                break;
-            case GameState.LEVEL_SELECT_MENU:
-                fadeTransitionScript.StartTransition(SetupLevelSelectMenuState);
-                break;
             case GameState.CONNECTION_MENU:
-                //fadeTransitionScript.StartTransition(SetupConnectionMenuState);
-                fadeTransitionScript.StartTransition(SetupLevelSelectMenuState);
-                break;
-            case GameState.ROLE_SELECT_MENU:
-                fadeTransitionScript.StartTransition(SetupRoleSelectMenuState);
+                fadeTransitionScript.StartTransition(SetupConnectionMenuState);
                 break;
             case GameState.WIN_MENU:
                 fadeTransitionScript.StartTransition(SetupWinMenuState);
@@ -455,12 +506,10 @@ public class GameInstance : MonoBehaviour {
 
     public void PauseGame() {
         gamePaused = true;
-        //Time.timeScale = 0.0f; 
 
     }
     public void UnpauseGame() {
         gamePaused = false;
-        //Time.timeScale = 1.0f; ITS A MULTIPLAYER GAME
 
     }
 
@@ -469,73 +518,59 @@ public class GameInstance : MonoBehaviour {
     private void SetupMainMenuState() {
         currentGameState = GameState.MAIN_MENU;
         HideAllMenus();
+        SetCursorState(true);
         mainMenu.SetActive(true);
-        SetApplicationTargetFrameRate(menusFrameTarget);
-
-    }
-    private void SetupOptionsMenuState() {
-        currentGameState = GameState.OPTIONS_MENU;
-        HideAllMenus();
-        optionsMenu.SetActive(true);
-        SetApplicationTargetFrameRate(menusFrameTarget);
-
-    }
-    private void SetupCreditsMenuState() {
-        currentGameState = GameState.CREDITS_MENU;
-        HideAllMenus();
-        creditsMenu.SetActive(true);
         SetApplicationTargetFrameRate(menusFrameTarget);
 
     }
     private void SetupConnectionMenuState() {
         currentGameState = GameState.CONNECTION_MENU;
         HideAllMenus();
+        SetCursorState(true);
         connectionMenuScript.SetupStartState();
         connectionMenu.SetActive(true);
         SetApplicationTargetFrameRate(menusFrameTarget);
 
     }
-    private void SetupRoleSelectMenuState() {
-        currentGameState = GameState.ROLE_SELECT_MENU;
-        HideAllMenus();
-        roleSelectMenuScript.SetupMenuStartState();
-        roleSelectMenu.SetActive(true);
-        SetApplicationTargetFrameRate(menusFrameTarget);
-
-    }
-    private void SetupLevelSelectMenuState() {
-        currentGameState = GameState.LEVEL_SELECT_MENU;
-        HideAllMenus();
-        levelSelectMenuScript.SetupMenuStartingState();
-        levelSelectMenu.SetActive(true);
-        SetApplicationTargetFrameRate(menusFrameTarget);
-    }
     private void SetupStartState() {
         currentGameState = GameState.PLAYING;
         HideAllMenus();
 
-        if (powerSavingMode)
-            SetApplicationTargetFrameRate(powerSavingFrameTarget); //Make sure to call this the moment the gameplay state is ready!
-        else
-            SetApplicationTargetFrameRate(gameplayFrameTarget);
+        SetApplicationTargetFrameRate(gameplayFrameTarget);
+        SetCursorState(false);
 
-        scoreSystem.SetActive(true);
-        scoreSystemScript.SetupStartState();
-        playerScript.SetupStartState();
-        player.SetActive(true);
-        player.transform.position = levelManagementScript.GetCurrentLoadedLevel().GetSpawnPoint();
+        mainHUD.SetActive(true);
 
-        Player.Identity assignedIdentity = playerScript.GetPlayerIdentity();
-        if (assignedIdentity == Player.Identity.DAREDEVIL)
-            daredevilHUD.SetActive(true);
-        else if (assignedIdentity == Player.Identity.COORDINATOR)
-            coordinatorHUD.SetActive(true);
+        if (player1Script)
+            player1Script.SetNetworkedEntityState(true);
+        if (player2Script)
+            player2Script.SetNetworkedEntityState(true);
+
+        if (netcodeScript.IsHost()) {
+            player1Script.SetupStartingState();
+            player2Script.SetupStartingState();
+
+            player1Script.SetPlayerID(Player.PlayerID.PLAYER_1);
+            player2Script.SetPlayerID(Player.PlayerID.PLAYER_2);
+
+            Level currentLoadedLevel = levelManagementScript.GetCurrentLoadedLevel();
+            Vector3 player1SpawnPosition = currentLoadedLevel.GetPlayer1SpawnPoint();
+            Vector3 player2SpawnPosition = currentLoadedLevel.GetPlayer2SpawnPoint();
+            player1.transform.position = player1SpawnPosition;
+            player2.transform.position = player2SpawnPosition;
+
+            ClientRpcParams clientRpcParams = new ClientRpcParams();
+            clientRpcParams.Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { player2NetworkObject.OwnerClientId } };
+            rpcManagementScript.RelayPlayerReferenceClientRpc(player1, Player.PlayerID.PLAYER_1, clientRpcParams);
+            rpcManagementScript.RelayPlayerReferenceClientRpc(player2, Player.PlayerID.PLAYER_2, clientRpcParams);
+        }
 
         //Enable controls! turn on and enable huds for each (SetActive(true) pretty much)
     }
     private void SetupWinMenuState() {
         currentGameState = GameState.WIN_MENU;
         HideAllMenus();
+        SetCursorState(true);
         winMenu.SetActive(true);
         SetApplicationTargetFrameRate(menusFrameTarget);
 
@@ -543,63 +578,44 @@ public class GameInstance : MonoBehaviour {
     private void SetupLoseMenuState() {
         currentGameState = GameState.LOSE_MENU;
         HideAllMenus();
+        SetCursorState(true);
         loseMenu.SetActive(true);
         SetApplicationTargetFrameRate(menusFrameTarget);
 
     }
-    private void SetupDebugModeState() {
-        currentGameState = GameState.PLAYING;
-        HideAllMenus();
 
-        if (powerSavingMode)
-            SetApplicationTargetFrameRate(powerSavingFrameTarget); //Make sure to call this the moment the gameplay state is ready!
-        else
-            SetApplicationTargetFrameRate(gameplayFrameTarget);
-
-        playerScript.AssignPlayerIdentity(Player.Identity.DAREDEVIL);
-        playerScript.gameObject.SetActive(true);
-        daredevilHUD.SetActive(true);
-
-        scoreSystem.SetActive(true);
-        scoreSystemScript.SetupStartState();
-        playerScript.SetupStartState();
-        player.SetActive(true);
-        player.transform.position = levelManagementScript.GetCurrentLoadedLevel().GetSpawnPoint();
-    }
-    public void EnterDebugMode() {
-        if (!levelManagementScript.LoadLevel("DebugLevel"))
-            return;
-
-        fadeTransitionScript.StartTransition(SetupDebugModeState); //Will probably be swtiched or combines with loading screen
-        gameStarted = true;
-    }
 
     //State Update
     private void UpdateStatelessSystems() {
         soundSystemScript.Tick();
         netcodeScript.Tick();
     }
-    private void UpdateLevelSelectMenuState() {
-        levelSelectMenuScript.Tick();
-    }
     private void UpdateConnectionMenuState() {
         connectionMenuScript.Tick();
     }
     private void UpdatePlayingState() {
         mainCameraScript.Tick();
-        playerScript.Tick();
+
+        if (player1Script)
+            player1Script.Tick();
+        if (player2Script)
+            player2Script.Tick();
+
         levelManagementScript.Tick();
-        scoreSystemScript.Tick();
     }
     private void UpdateFixedPlayingState() {
-        mainCameraScript.FixedTick();
-        playerScript.FixedTick();
+        //mainCameraScript.FixedTick();
+
+        if (player1Script)
+            player1Script.FixedTick();
+        if (player2Script)
+            player2Script.FixedTick();
     }
 
 
 
     public bool StartGame() {
-        if (!levelManagementScript.LoadQueuedLevelKey())
+        if (!levelManagementScript.LoadLevel("NormalLevel")) //Hardcoded Level
             return false;
 
         fadeTransitionScript.StartTransition(SetupStartState); //Will probably be swtiched or combines with loading screen
@@ -619,12 +635,21 @@ public class GameInstance : MonoBehaviour {
         if (levelManagementScript.IsLevelLoaded())
             levelManagementScript.UnloadLevel();
 
-
         gameStarted = false;
-        scoreSystem.SetActive(false);
-        player.SetActive(false);
-        daredevilHUD.SetActive(false);
-        coordinatorHUD.SetActive(false);
+        mainHUD.SetActive(false);
+
+        if (player1)
+            Destroy(player1);
+        if (player2)
+            Destroy(player2);
+
+        player1 = null;
+        player2 = null;
+        player1Script = null;
+        player2Script = null;
+        player1NetworkObject = null;
+        player2NetworkObject = null;
+        
 
         if (gamePaused)
             UnpauseGame();
@@ -643,30 +668,86 @@ public class GameInstance : MonoBehaviour {
     private void HideAllMenus() {
         //Add all GUI here!
         mainMenu.SetActive(false);
-        optionsMenu.SetActive(false);
-        creditsMenu.SetActive(false);
-        levelSelectMenu.SetActive(false);
         winMenu.SetActive(false);
         loseMenu.SetActive(false);
         connectionMenu.SetActive(false);
-        roleSelectMenu.SetActive(false);
         pauseMenu.SetActive(false);
         //? huds?
     }
 
 
     public bool IsDebuggingEnabled() { return debugging; }
-    public void SetPowerSavingMode(bool state) { powerSavingMode = state; }
+    public void SetCursorState(bool state) {  
+        Cursor.visible = state;
 
+        if (state)
+            Cursor.lockState = CursorLockMode.None;
+        if (!state)
+            Cursor.lockState = CursorLockMode.Locked;
+    }
+
+
+    public void CreatePlayer1(ulong id) {
+        player1 = Instantiate(player1Asset);
+        player1.name = "NetworkedPlayer_1";
+        
+        player1Script = player1.GetComponent<Player>();
+        Validate(player1Script, "Player1 component is missing on entity!", ValidationLevel.ERROR, true);
+        player1Script.Initialize(this);
+        player1Script.SetNetworkedEntityState(false);
+
+        player1NetworkObject = player1.GetComponent<NetworkObject>();
+        Validate(player1NetworkObject, "Player1 component is missing on entity!", ValidationLevel.ERROR, true);
+
+        player1NetworkObject.SpawnWithOwnership(id);
+    }
+    public void CreatePlayer2(ulong id) {
+        player2 = Instantiate(player2Asset);
+        player2.name = "NetworkedPlayer_2";
+
+        player2Script = player2.GetComponent<Player>();
+        Validate(player2Script, "Player2 component is missing on entity!", ValidationLevel.ERROR, true);
+        player2Script.Initialize(this);
+        player2Script.SetNetworkedEntityState(false);
+
+        player2NetworkObject = player2.GetComponent<NetworkObject>();
+        Validate(player2NetworkObject, "Player2 component is missing on entity!", ValidationLevel.ERROR, true);
+
+        player2NetworkObject.SpawnWithOwnership(id);
+    }
+    public void SetReceivedPlayerReferenceRpc(NetworkObjectReference reference, Player.PlayerID id) {
+        if (id == Player.PlayerID.NONE)
+            return;
+
+        if (!player1 && id == Player.PlayerID.PLAYER_1) {
+            player1 = reference;
+            player1.name = "NetworkedPlayer_1";
+            player1NetworkObject = player1.GetComponent<NetworkObject>();
+            player1Script = player1.GetComponent<Player>();
+            player1Script.Initialize(this);
+            player1Script.SetPlayerID(id);
+            player1Script.SetNetworkedEntityState(false);
+        }
+        else if (!player2 && id == Player.PlayerID.PLAYER_2) {
+            player2 = reference;
+            player2.name = "NetworkedPlayer_2";
+            player2NetworkObject = player2.GetComponent<NetworkObject>();
+            player2Script = player2.GetComponent<Player>();
+            player2Script.Initialize(this);
+            player2Script.SetPlayerID(id);
+            player2Script.SetNetworkedEntityState(false);
+        }
+    }
+    public void ProccessPlayer2MovementRpc(float input) {
+        if (player2Script)
+            player2Script.ProcessMovementInputRpc(input);
+    }
 
     //Getters
     public Netcode GetNetcode() { return netcodeScript; }
     public RPCManagement GetRPCManagement() { return rpcManagementScript; }
     public LevelManagement GetLevelManagement() { return levelManagementScript; }
-    public ScoreSystem GetScoreSystem() { return scoreSystemScript; }
-
-    public RoleSelectMenu GetRoleSelectMenu() { return roleSelectMenuScript; }
-    public Player GetPlayer() { return playerScript; }
+    public Player GetPlayer() { return player1Script; }
 
 
 
@@ -677,161 +758,8 @@ public class GameInstance : MonoBehaviour {
         if (debugging)
             Log(asset.name + " has been loaded successfully!");
 
-        //Notes:
-        //Any asset that get loaded will be used to construct a gameobject while the rest of the assets are still being loaded
-        //Taking advantage of multithreading
-
-
-        //TODO: Do something about this!
-
-        if (asset.CompareTag("Player")) {
-            player = Instantiate(asset);
-            player.SetActive(false);
-            playerScript = player.GetComponent<Player>();
-            Validate(playerScript, "Player component is missing on entity!", ValidationLevel.ERROR, true);
-            playerScript.Initialize(this);
-        }
-        else if (asset.CompareTag("MainCamera")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            mainCamera = Instantiate(asset);
-            mainCameraScript = mainCamera.GetComponent<MainCamera>();
-            mainCameraScript.Initialize(this);
-            //mainCameraScript.SetPlayerReference(player1Script); //Cant guarantee order!
-            Validate(mainCameraScript, "MainCamera component is missing on entity!", ValidationLevel.ERROR, true);
-        }
-        else if (asset.CompareTag("SoundSystem")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            soundSystem = Instantiate(asset);
-            soundSystemScript = soundSystem.GetComponent<SoundSystem>();
-            soundSystemScript.Initialize(this);
-            Validate(soundSystemScript, "SoundSystem component is missing on entity!", ValidationLevel.ERROR, true);
-        }
-        else if (asset.CompareTag("RPCManagement")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            rpcManagement = Instantiate(asset);
-            rpcManagementScript = rpcManagement.GetComponent<RPCManagement>();
-            rpcManagementScript.Initialize(this);
-            Validate(rpcManagementScript, "RpcManagement component is missing on entity!", ValidationLevel.ERROR, true);
-        }
-        else if (asset.CompareTag("EventSystem")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            eventSystem = Instantiate(asset);
-        }
-        else if (asset.CompareTag("Netcode")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            netcode = Instantiate(asset);
-            netcodeScript = netcode.GetComponent<Netcode>();
-            netcodeScript.Initialize(this);
-            Validate(netcodeScript, "Netcode component is missing on entity!", ValidationLevel.ERROR, true);
-        }
-        else if (asset.CompareTag("MainMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            mainMenu = Instantiate(asset);
-            mainMenuScript = mainMenu.GetComponent<MainMenu>();
-            mainMenuScript.Initialize(this);
-            Validate(mainMenuScript, "MainMenu component is missing on entity!", ValidationLevel.ERROR, true);
-        }
-        else if (asset.CompareTag("OptionsMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            optionsMenu = Instantiate(asset);
-            optionsMenuScript = optionsMenu.GetComponent<OptionsMenu>();
-            Validate(optionsMenuScript, "OptionMenu component is missing on entity!", ValidationLevel.ERROR, true);
-            optionsMenuScript.Initialize(this);
-        }
-        else if (asset.CompareTag("CreditsMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            creditsMenu = Instantiate(asset);
-            creditsMenuScript = creditsMenu.GetComponent<CreditsMenu>();
-            Validate(creditsMenuScript, "CreditsMenu component is missing on entity!", ValidationLevel.ERROR, true);
-            creditsMenuScript.Initialize(this);
-        }
-        else if (asset.CompareTag("ConnectionMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            connectionMenu = Instantiate(asset);
-            connectionMenuScript = connectionMenu.GetComponent<ConnectionMenu>();
-            Validate(connectionMenuScript, "ConnectionMenu component is missing on entity!", ValidationLevel.ERROR, true);
-            connectionMenuScript.Initialize(this);
-        }
-        else if (asset.CompareTag("RoleSelectMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            roleSelectMenu = Instantiate(asset);
-            roleSelectMenuScript = roleSelectMenu.GetComponent<RoleSelectMenu>();
-            Validate(roleSelectMenuScript, "RoleSelectMenu component is missing on entity!", ValidationLevel.ERROR, true);
-            roleSelectMenuScript.Initialize(this);
-        }
-        else if (asset.CompareTag("ScoreSystem")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            scoreSystem = Instantiate(asset);
-            scoreSystem.SetActive(false);
-            scoreSystemScript = scoreSystem.GetComponent<ScoreSystem>();
-            Validate(scoreSystemScript, "ScoreSystem component is missing on entity!", ValidationLevel.ERROR, true);
-            scoreSystemScript.Initialize(this);
-        }
-        else if (asset.CompareTag("LevelSelectMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            levelSelectMenu = Instantiate(asset);
-            levelSelectMenuScript = levelSelectMenu.GetComponent<LevelSelectMenu>();
-            Validate(levelSelectMenuScript, "LevelSelectMenu component is missing on entity!", ValidationLevel.ERROR, true);
-            levelSelectMenuScript.Initialize(this);
-        }
-        else if (asset.CompareTag("LoseMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            loseMenu = Instantiate(asset);
-        }
-        else if (asset.CompareTag("WinMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            winMenu = Instantiate(asset);
-        }
-        else if (asset.CompareTag("DaredevilHUD")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            daredevilHUD = Instantiate(asset);
-            daredevilHUD.SetActive(false);
-            daredevilHUDScript = daredevilHUD.GetComponent<DaredevilHUD>();
-            Validate(daredevilHUDScript, "DaredevilHUD component is missing on entity!", ValidationLevel.ERROR, true);
-            daredevilHUDScript.Initialize(this);
-        }
-        else if (asset.CompareTag("CoordinatorHUD")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            coordinatorHUD = Instantiate(asset);
-            coordinatorHUD.SetActive(false);
-            coordinatorHUDScript = coordinatorHUD.GetComponent<CoordinatorHUD>();
-            Validate(coordinatorHUDScript, "CoordinatorHUD component is missing on entity!", ValidationLevel.ERROR, true);
-            coordinatorHUDScript.Initialize(this);
-        }
-        else if (asset.CompareTag("PauseMenu")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            pauseMenu = Instantiate(asset);
-        }
-        else if (asset.CompareTag("FadeTransition")) {
-            if (debugging)
-                Log("Started creating " + asset.name + " entity");
-            fadeTransition = Instantiate(asset);
-            fadeTransitionScript = fadeTransition.GetComponent<FadeTransition>();
-            fadeTransitionScript.Initialize(this);
-        }
-        else
-            Warning("Loaded an asset that was not recognized!\n[" + asset.name + "]");
+        ProcessLoadedAsset(asset);
     }
-
-
-
     private void FinishedLoadingLoadingScreenCallback(AsyncOperationHandle<GameObject> handle) {
         if (handle.Status == AsyncOperationStatus.Succeeded) {
             if (debugging)
@@ -844,7 +772,6 @@ public class GameInstance : MonoBehaviour {
             if (assetsLoadingInProgress)
                 loadingScreenScript.StartLoadingProcess(LoadingScreen.LoadingProcess.LOADING_ASSETS);
 
-            //Start Using it?
             if (debugging)
                 Log("Created " + handle.Result.name);
         }
@@ -856,7 +783,6 @@ public class GameInstance : MonoBehaviour {
         if (handle.Status == AsyncOperationStatus.Succeeded) {
             if (debugging)
                 Log("Finished loading assets successfully!");
-            //assetsLoadingInProgress = false; //Move this to function that checks the status of the assets handle and the levels bundle handle!
         }
         else if (handle.Status == AsyncOperationStatus.Failed) {
             QuitApplication("Failed to load assets!\nCheck if label is correct.");

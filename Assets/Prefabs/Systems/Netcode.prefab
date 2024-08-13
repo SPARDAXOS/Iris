@@ -112,4 +112,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   enableNetworkLog: 1
   currentState: 0
-  clientID: 0
+  running: 0

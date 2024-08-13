@@ -45,16 +45,9 @@ public class RelayManager {
         if (!initialized || !unityServicesInitialized)
             return;
 
-        CheckDebbuggingInput();
         CheckSignInStatus();
     }
 
-    private void CheckDebbuggingInput() {
-        if (Input.GetKeyDown(KeyCode.S))
-            Log("Signed In: " + signedIn);
-        if (Input.GetKeyDown(KeyCode.U))
-            Log("Unity Services Initialized: " + unityServicesInitialized);
-    }
     private void CheckSignInStatus() {
         if (IsSignedIn())
             return;
@@ -126,11 +119,18 @@ public class RelayManager {
             netcodeRef.GetUnityTransport().SetRelayServerData(relayServerData);
             netcodeRef.EnableNetworking();
 
+
         } catch(RelayServiceException exception) {
             Error("Failed to host relay!\n" + exception.Message);
         }
     }
     public async void JoinRelay(string code) {
+        if (string.IsNullOrEmpty(code)) {
+            if (netcodeRef.IsDebugLogEnabled())
+                Warning("Failed to join relay with code: " + code);
+            return;
+        }
+
         try {
             if (netcodeRef.IsDebugLogEnabled())
                 Log("Joining relay with code " + code);
@@ -142,7 +142,7 @@ public class RelayManager {
             netcodeRef.EnableNetworking();
         }
         catch (RelayServiceException exception) {
-            Error("Failed to join relay!\n" + exception.Message);
+            Warning("Failed to join relay!\n" + exception.Message);
         }
     }
 

@@ -47,107 +47,38 @@ public class RPCManagement : NetworkedEntity {
     }
     [ClientRpc]
     public void RelayConnectionConfirmationClientRpc() {
-        gameInstanceRef.Transition(GameState.ROLE_SELECT_MENU);
-    }
-
-
-
-
-
-
-    [ServerRpc (RequireOwnership = false)]
-    public void UpdateReadyCheckServerRpc(ulong senderID, bool value) {
-        ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-        if (clientParams == null) {
-            Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-            return;
-        }
-
-        RelayReadyCheckClientRpc(senderID, value, clientParams.Value);
-    }
-    [ClientRpc]
-    public void RelayReadyCheckClientRpc(ulong senderID, bool value, ClientRpcParams paramsPack) {
-        gameInstanceRef.GetRoleSelectMenu().ReceiveReadyCheckRPC(value);
-    }
-
-
-    [ServerRpc (RequireOwnership = false)]
-    public void UpdateRoleSelectionServerRpc(ulong senderID, Player.Identity identity) {
-        ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-        if (clientParams == null) {
-            Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-            return;
-        }
-
-        RelayRoleSelectionClientRpc(senderID, identity, clientParams.Value);
-    }
-    [ClientRpc]
-    public void RelayRoleSelectionClientRpc(ulong senderID, Player.Identity identity, ClientRpcParams paramsPack) {
-        gameInstanceRef.GetRoleSelectMenu().ReceiveRoleSelectionRPC(identity);
-    }
-
-
-    [ServerRpc (RequireOwnership = true)]
-    public void ConfirmRoleSelectionServerRpc(ulong senderID) {
-        ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-        if (clientParams == null) {
-            Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-            return;
-        }
-
-        RelayRoleSelectionConfirmationClientRpc(senderID, clientParams.Value);
-    }
-    [ClientRpc]
-    public void RelayRoleSelectionConfirmationClientRpc(ulong senderID, ClientRpcParams paramsPack) {
-        gameInstanceRef.GetLevelManagement().QueueLevelLoadKey("DebugLevel"); //Temporary
         gameInstanceRef.StartGame();
+        //gameInstanceRef.Transition(GameState.ROLE_SELECT_MENU);
     }
 
-
-
-
-
-
-
-
-
-    //Coordinator
-    [ServerRpc(RequireOwnership = false)]
-    public void SetBoostStateServerRpc(ulong senderID, bool state) {
-        ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-        if (clientParams == null) {
-            Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-            return;
-        }
-
-        RelayBoostStateClientRpc(senderID, state, clientParams.Value);
-    }
+    //References
     [ClientRpc]
-    public void RelayBoostStateClientRpc(ulong senderID, bool state, ClientRpcParams paramsPack) {
-        gameInstanceRef.GetPlayer().GetDaredevilData().SetBoostState(state);
+    public void RelayPlayerReferenceClientRpc(NetworkObjectReference reference, Player.PlayerID player, ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.SetReceivedPlayerReferenceRpc(reference, player);
     }
 
-    
+
+
+    //Input
     [ServerRpc(RequireOwnership = false)]
-    public void SetObstacleActivationStateServerRpc(ulong senderID, Obstacle.ObstacleActivationState state) {
-        ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-        if (clientParams == null) {
-            Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-            return;
-        }
-
-        RelayObstacleActivationStateClientRpc(senderID, state, clientParams.Value);
-    }
-    [ClientRpc]
-    public void RelayObstacleActivationStateClientRpc(ulong senderID, Obstacle.ObstacleActivationState state, ClientRpcParams paramsPack) {
-        LevelManagement levelManagement = gameInstanceRef.GetLevelManagement();
-        if (!levelManagement.IsLevelLoaded()) {
-            Warning("Received obstacle activation state rpc while level was not loaded!");
-            return;
-        }
-
-        levelManagement.GetCurrentLoadedLevel().SetCurrentObstacleState(state);
+    public void CalculatePlayer2PositionServerRpc(float input) {
+        gameInstanceRef.ProccessPlayer2MovementRpc(input);
     }
 
 
+
+    //[ServerRpc(RequireOwnership = false)]
+    //public void SetBoostStateServerRpc(ulong senderID, bool state) {
+    //    ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
+    //    if (clientParams == null) {
+    //        Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
+    //        return;
+    //    }
+
+    //    RelayBoostStateClientRpc(senderID, state, clientParams.Value);
+    //}
+    //[ClientRpc]
+    //public void RelayBoostStateClientRpc(ulong senderID, bool state, ClientRpcParams paramsPack) {
+    //    gameInstanceRef.GetPlayer().GetDaredevilData().SetBoostState(state);
+    //}
 }

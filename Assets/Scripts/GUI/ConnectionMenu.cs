@@ -36,6 +36,7 @@ public class ConnectionMenu : Entity {
     private Button clientButtonComp = null;
     private Button localMPButtonComp = null;
     private Button globalMPButtonComp = null;
+    private Button confirmJoinCodeButtonComp = null;
 
     private TextMeshProUGUI statusTextComp = null;
     private TextMeshProUGUI connectionCodeTextComp = null; //Could be reused for the join code later
@@ -50,21 +51,15 @@ public class ConnectionMenu : Entity {
             return;
 
 
-        gameInstanceRef = game;
 
+        gameInstanceRef = game;
         SetupReferences();
-        SetMenuState(ConnectionMenuState.SELECT_CONNECTION);
         initialized = true;
     }
     public override void Tick() {
         if (!initialized) {
             Warning("ConnectionMenu was ticked while it was not yet initialized!");
             return;
-        }
-
-        //TEMPORARY FOR DEBUGGING
-        if (Input.GetKeyDown(KeyCode.L)) {
-            gameInstanceRef.EnterDebugMode();
         }
 
         CheckConnectionStatus();
@@ -161,6 +156,7 @@ public class ConnectionMenu : Entity {
     //Called upon opening this menu
     public void SetupStartState() {
         CheckUnityServicesStatus();
+        SetMenuState(ConnectionMenuState.SELECT_CONNECTION);
     }
 
     private void SetupReferences() {
@@ -195,6 +191,14 @@ public class ConnectionMenu : Entity {
             return;
         clientButtonComp = clientButtonTransform.GetComponent<Button>();
         if (!Validate(clientButtonComp, "ConnectionMenu failed to get reference to client Button component", ValidationLevel.ERROR, false))
+            return;
+
+        //Confirm JoinCode Button
+        Transform confirmJoinCodeButtonTransform = transform.Find("ConfirmJoinCodeButton");
+        if (!Validate(confirmJoinCodeButtonTransform, "ConnectionMenu failed to get reference to ConfirmJoinCodeButton transform", ValidationLevel.ERROR, false))
+            return;
+        confirmJoinCodeButtonComp = confirmJoinCodeButtonTransform.GetComponent<Button>();
+        if (!Validate(confirmJoinCodeButtonComp, "ConnectionMenu failed to get reference to ConfirmJoinCode Button component", ValidationLevel.ERROR, false))
             return;
 
         //Connection Code Input Field
@@ -236,6 +240,7 @@ public class ConnectionMenu : Entity {
             clientButtonComp.gameObject.SetActive(false);
             connectionCodeTextComp.gameObject.SetActive(false);
             connectionCodeInputComp.gameObject.SetActive(false);
+            confirmJoinCodeButtonComp.gameObject.SetActive(false);
         }
         else if (state == ConnectionMenuState.SELECT_MODE) {
 
@@ -247,6 +252,7 @@ public class ConnectionMenu : Entity {
             clientButtonComp.gameObject.SetActive(true);
             connectionCodeTextComp.gameObject.SetActive(false);
             connectionCodeInputComp.gameObject.SetActive(false);
+            confirmJoinCodeButtonComp.gameObject.SetActive(false);
             connectionCodeTextComp.text = "Retrieving Join Code...";
         }
         else if (state == ConnectionMenuState.HOST) {
@@ -259,6 +265,7 @@ public class ConnectionMenu : Entity {
             clientButtonComp.gameObject.SetActive(false);
             connectionCodeTextComp.gameObject.SetActive(true);
             connectionCodeInputComp.gameObject.SetActive(false);
+            confirmJoinCodeButtonComp.gameObject.SetActive(false);
 
             if (connectionSelectionType == ConnectionTypeSelection.LOCAL)
                 connectionCodeTextComp.text = "Join Code: " + gameInstanceRef.GetNetcode().GetEncryptedLocalHost();
@@ -267,13 +274,14 @@ public class ConnectionMenu : Entity {
         else if (state == ConnectionMenuState.CLIENT) {
 
             statusTextComp.text = enterConnectionCodeMessage;
-
+            connectionCodeInputComp.text = "";
             localMPButtonComp.gameObject.SetActive(false);
             globalMPButtonComp.gameObject.SetActive(false);
             hostButtonComp.gameObject.SetActive(false);
             clientButtonComp.gameObject.SetActive(false);
             connectionCodeTextComp.gameObject.SetActive(false);
             connectionCodeInputComp.gameObject.SetActive(true);
+            confirmJoinCodeButtonComp.gameObject.SetActive(true);
         }
     }
 
@@ -292,6 +300,9 @@ public class ConnectionMenu : Entity {
     }
     public void ConfirmConnectionCode() {
         Netcode netcodeRef = gameInstanceRef.GetNetcode();
+        if (netcodeRef.IsDebugLogEnabled())
+            Log("Attempting to connect to " + connectionCodeInputComp.text);
+
         if (connectionSelectionType == ConnectionTypeSelection.LOCAL) {
             string connectionCode = netcodeRef.DecryptConnectionCode(connectionCodeInputComp.text);
             if (connectionCode != null)
@@ -304,12 +315,14 @@ public class ConnectionMenu : Entity {
         else if (connectionSelectionType == ConnectionTypeSelection.GLOBAL)
             netcodeRef.StartGlobalClient(connectionCodeInputComp.text);
             
-        if (gameInstanceRef.IsDebuggingEnabled())
-            Log("Attempting to connect to " + connectionCodeInputComp.text);
+
     }
 
     public void UpdateConnectionCode(string code) {
-        connectionCodeTextComp.text = "Join Code: " + code;
+        if (currentMenuState != ConnectionMenuState.HOST) //Catch multi-threading bug
+            gameInstanceRef.GetNetcode().StopNetworking();
+        else
+            connectionCodeTextComp.text = "Join Code: " + code;
     }
     public void HostButton() {
 

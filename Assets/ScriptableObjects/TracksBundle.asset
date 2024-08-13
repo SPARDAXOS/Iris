@@ -12,12 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ad01b60f3e0d54747b396922fe697ed2, type: 3}
   m_Name: TracksBundle
   m_EditorClassIdentifier: 
-  entries:
-  - key: TestTrack
-    clip:
-      m_AssetGUID: 18447feda8e313d4ebf6b3a32122e8fe
-      m_SubObjectName: 
-      m_SubObjectType: 
-      m_EditorAssetChanged: 0
-    volume: 1
-    pitch: 1
+  entries: []
