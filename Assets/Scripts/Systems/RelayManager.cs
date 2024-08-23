@@ -90,7 +90,7 @@ public class RelayManager {
             AuthenticationService.Instance.SignedIn += SignedInCallback;
         }
         catch (Exception exception) {
-            Error("Failed to initialize Unity Services\nGlobal multiplayer will be unavailable!\n" + exception);
+            Warning("Failed to initialize Unity Services\nGlobal multiplayer will be unavailable!\n" + exception);
         }
     }
 
@@ -121,7 +121,7 @@ public class RelayManager {
 
 
         } catch(RelayServiceException exception) {
-            Error("Failed to host relay!\n" + exception.Message);
+            Warning("Failed to host relay!\n" + exception.Message);
         }
     }
     public async void JoinRelay(string code) {

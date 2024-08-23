@@ -17,40 +17,37 @@ public class SoundSystem : Entity {
         public AudioSource unit;
     }
 
+    [Header("Bundles")]
+    [SerializeField] private SFXBundle sfxBundle;
+    [SerializeField] private TracksBundle tracksBundle;
 
     [Space(5)]
-    [Header("Optimization")]
-    [SerializeField] private uint soundUnitsLimit = 20;
+    [Header("General")]
+    [Range(1, 100)][SerializeField] private uint soundUnitsLimit = 50;
 
     [Space(5)]
     [Header("Fade")]
-    [Range(0.01f, 1.0f)] private float fadeInSpeed = 0.1f;
-    [Range(0.01f, 1.0f)] private float fadeOutSpeed = 0.1f;
-    [Tooltip("Should interrupt a fade in/out and immediately play the new track")]
-    [SerializeField] private bool canInterruptFade = false;
+    [Range(0.01f, 1.0f)][SerializeField] private float fadeInSpeed = 0.1f;
+    [Range(0.01f, 1.0f)][SerializeField] private float fadeOutSpeed = 0.1f;
+    [Tooltip("Should interrupt a fade in/out and play a new track")]
+    [SerializeField] private bool canInterruptFade = true;
 
     [Space(5)]
     [Header("Volume")]
-    [Range(0.0f, 1.0f)] private float masterVolume = 1.0f;
-    [Range(0.0f, 1.0f)] private float musicVolume = 1.0f;
-    [Range(0.0f, 1.0f)] private float SFXVolume = 1.0f;
+    [Range(0.0f, 1.0f)][SerializeField] private float masterVolume = 1.0f;
+    [Range(0.0f, 1.0f)][SerializeField] private float musicVolume = 1.0f;
+    [Range(0.0f, 1.0f)][SerializeField] private float sfxVolume = 1.0f;
 
-
-    private const string SFXBundleLabel = "SFXBundle";
-    private const string tracksBundleLabel = "TracksBundle";
-
-    private bool initializing = false;
-    private bool loadingBundles = false;
-    private bool loadingAudioClips = false;
 
     private bool canPlaySFX = false;
     private bool canPlayTracks = false;
 
-    private AsyncOperationHandle<ScriptableObject> SFXBundleHandle;
-    private AsyncOperationHandle<ScriptableObject> tracksBundleHandle;
+    private bool loadingSFXAssets = false;
+    private bool loadingTracksAssets = false;
+    private bool loadingAssets = false;
 
-    private Dictionary<string, AsyncOperationHandle<AudioClip>> loadedSFXAssetsHandles;
-    private Dictionary<string, AsyncOperationHandle<AudioClip>> loadedTracksAssets;
+    private Dictionary<string, AsyncOperationHandle<AudioClip>> loadedSFXClips = new Dictionary<string, AsyncOperationHandle<AudioClip>>();
+    private Dictionary<string, AsyncOperationHandle<AudioClip>> loadedTracksClips = new Dictionary<string, AsyncOperationHandle<AudioClip>>();
 
 
     private bool fadingIn = false;
@@ -59,265 +56,487 @@ public class SoundSystem : Entity {
     private string currentPlayingTrackKey = null;
 
     private float currentTrackVolume = 0.0f;
-    private float targetTrackEntryVolume = 0.0f;
+    private float currentTrackEntryVolume = 0.0f;
+
+    private AudioSource trackAudioSource = null;
+
+    private GameObject units = null;
+    private List<AudioSource> soundUnits = new List<AudioSource>();
+    private List<SFXRequest> SFXRequests = new List<SFXRequest>();
 
 
-    private GameObject unit = null;
-    private AudioSource trackAudioSource = null; //TODO: Create this only if i know that i can play track sounds!
-    private List<AudioSource> soundUnits = new List<AudioSource>(); //TODO: Create this only if i know that i can play sfx sounds!
-    private List<SFXRequest> SFXRequests = new List<SFXRequest>(); //TODO: Create this only if i know that i can play sfx sounds!
-
-
-
-    public override void Initialize(GameInstance game) {
-        if (initialized || initializing)
+    private void OnDestroy() {
+        UnloadAllAssets();
+    }
+    public override void Initialize(GameInstance instance) {
+        if (initialized) {
+            Debug.LogWarning("Attempted to initialize an already intialized entity! - " + gameObject.name);
             return;
-
-        gameInstanceRef = game;
-        initializing = true;
-        LoadBundles();
-    }
-    public override void Tick() {
-        if (initializing)
-            UpdateIntializingState();
-        else if (canPlaySFX || canPlayTracks)
-            UpdateNormalState();
-    }
-    public override void CleanUp(string message = "Entity cleaned up successfully!") {
-        if (gameInstanceRef.IsDebuggingEnabled())
-            Log(message);
-
-        UnloadResources();
-    }
-
-    private void UpdateIntializingState() {
-        if (loadingBundles) {
-            if (HasFinishedLoadingBundles())
-                LoadAudioClips();
-        }
-        else if (loadingAudioClips) {
-            if (HasFinishedLoadingAudioClips()) {
-                if (gameInstanceRef.IsDebuggingEnabled())
-                    Log("SoundSystem has finished loading AudioClips");
-                ConfirmInitialization();
-            }
-        }
-        else
-            Error("Was not supposed to be called!!!!!!");
-    }
-    private void UpdateNormalState() {
-
-
-
-
-
-
-
-    }
-
-    //Resource Management
-    private void UnloadResources() {
-        if (SFXBundleHandle.IsValid()) {
-            Addressables.Release(SFXBundleHandle);
-            if (gameInstanceRef.IsDebuggingEnabled())
-                Log("SoundSystem has unloaded SFXBundle successfully!");
-        }
-        if (tracksBundleHandle.IsValid()) {
-            Addressables.Release(tracksBundleHandle);
-            if (gameInstanceRef.IsDebuggingEnabled())
-                Log("SoundSystem has unloaded TracksBundle successfully!");
         }
 
-        if (loadedSFXAssetsHandles != null) {
-            foreach (var asset in loadedSFXAssetsHandles) {
-                Addressables.Release(asset.Value);
-                if (gameInstanceRef.IsDebuggingEnabled())
-                    Log("SoundSystem has unloaded SFX audio clip [" + asset.Key + "]");
-            }
-        }
+        ValidateBundles();
+        LoadAssets();
+        SetupReferences();
 
-        if (loadedTracksAssets != null) {
-            foreach (var asset in loadedTracksAssets) {
-                Addressables.Release(asset.Value);
-                if (gameInstanceRef.IsDebuggingEnabled())
-                    Log("SoundSystem has unloaded track audio clip [" + asset.Key + "]");
-            }
-        }
-
-
-        if (gameInstanceRef.IsDebuggingEnabled())
-            Log("SoundSystem has released all resources successfully!");
-    }
-    private void LoadBundles() {
-        if (gameInstanceRef.IsDebuggingEnabled())
-            Log("SoundSystem started loading bundles!");
-
-        //Notes:
-        //-All exceptions thrown by LoadAssetAsync are disabled.
-        //-Should not crash the game if an exception is thrown.
-
-        SFXBundleHandle = Addressables.LoadAssetAsync<ScriptableObject>(SFXBundleLabel);
-        if (SFXBundleHandle.IsDone)
-            Warning("SoundSystem failed to load SFXBundle\nReason: " + SFXBundleHandle.OperationException.Message + "\nPlaying SFX will not be possible!");
-        else
-            SFXBundleHandle.Completed += FinishedLoadingSFXBundleCallback;
-        
-        tracksBundleHandle = Addressables.LoadAssetAsync<ScriptableObject>(tracksBundleLabel);
-        if (tracksBundleHandle.IsDone)
-            Warning("SoundSystem failed to load TracksBundle\nReason: " + tracksBundleHandle.OperationException.Message + "\nPlaying tracks will not be possible!");
-        else
-            tracksBundleHandle.Completed += FinishedLoadingTracksBundleCallback;
-        
-        if (SFXBundleHandle.IsDone && tracksBundleHandle.IsDone) {
-            Warning("SoundSystem will not be able to play any audio clips!");
-            ConfirmInitialization();
-        }
-        else
-            loadingBundles = true;
-    }
-    private void LoadAudioClips() {
-
-        loadingAudioClips = false;
-
-        if (canPlaySFX) {
-            loadedSFXAssetsHandles = new Dictionary<string, AsyncOperationHandle<AudioClip>>();
-            foreach(var asset in ((SFXBundle)SFXBundleHandle.Result).entries) {
-                var handle = Addressables.LoadAssetAsync<AudioClip>(asset.clip);
-                handle.Completed += FinishedLoadingAudioClipCallback;
-                loadedSFXAssetsHandles.Add(asset.key, handle);
-                if (gameInstanceRef.IsDebuggingEnabled())
-                    Log("SoundSystem started loading SFX audio clip with key [" + asset.key + "]");
-            }
-            loadingAudioClips = true;
-        }
-        if (canPlayTracks) {
-            loadedTracksAssets = new Dictionary<string, AsyncOperationHandle<AudioClip>>();
-            foreach(var asset in ((TracksBundle)tracksBundleHandle.Result).entries) {
-                var handle = Addressables.LoadAssetAsync<AudioClip>(asset.clip);
-                handle.Completed += FinishedLoadingAudioClipCallback;
-                loadedTracksAssets.Add(asset.key, handle);
-                if (gameInstanceRef.IsDebuggingEnabled())
-                    Log("SoundSystem started loading track audio clip with key [" + asset.key + "]");
-            }
-            loadingAudioClips = true;
-        }
-
-        
-    }
-
-    private bool HasFinishedLoadingBundles() {
-        bool result = true;
-
-        result &= SFXBundleHandle.IsDone;
-        result &= tracksBundleHandle.IsDone;
-
-        loadingBundles = !result;
-        return result;
-    }
-    private bool HasFinishedLoadingAudioClips() {
-        bool result = true;
-
-        foreach(var asset in loadedSFXAssetsHandles)
-            result &= asset.Value.IsDone;
-        foreach (var asset in loadedTracksAssets)
-            result &= asset.Value.IsDone;
-
-        loadingAudioClips = !result;
-        return result;
-    }
-    private void ConfirmInitialization() {
-        if (gameInstanceRef.IsDebuggingEnabled())
-            Log("SoundSystem has been initialized successfully!");
-
-        initializing = false;
+        gameInstanceRef = instance;
         initialized = true;
     }
-
-
-    //User
-    public bool PlayLocalSFX(string key) {
-        if (!canPlaySFX) {
-            Warning("Unable to play local sfx associated with key [" + key + "]\n Reason: SoundSystem is not able to play SFX audio clips!");
-            return false;
+    public override void Tick() {
+        if (!initialized) {
+            Debug.LogWarning("Attempted to tick an unintialized entity! - " + gameObject.name);
+            return;
         }
 
-
-
-
-
-
-        return true;
-    }
-    public bool PlayGlobalSFX(string key) {
-        if (!canPlaySFX) {
-            Warning("Unable to play global sfx associated with key [" + key + "]\n Reason: SoundSystem is not able to play SFX audio clips!");
-            return false;
+        if (loadingAssets) {
+            CheckAssetsLoadingStatus();
+            return;
         }
 
-
-
-
-        return true;
-    }
-    public bool PlayTrack(string key) {
-        if (!canPlayTracks) {
-            Warning("Unable to play track associated with key [" + key + "]\n Reason: SoundSystem is not able to play track audio clips!");
-            return false;
-        }
-
-
-
-
-
-
-        return true;
-    }
-    public void StopTrack() {
-
-    }
-
-    //Look into how to update the current used values for sounds when these change!
-    public void SetMasterVolume(float volume) {
-        masterVolume = volume;
-    }
-    public void SetMusicVolume(float volume) {
-        musicVolume = volume;
-    }
-    public void SetSFXVolume(float volume) {
-        SFXVolume = volume;
-    }
-    public float GetMasterVolume() { return masterVolume; }
-    public float GetMusicVolume() { return musicVolume; }
-    public float GetSFXVolume() { return SFXVolume; }
-
-
-    //Callbacks
-    private void FinishedLoadingTracksBundleCallback(AsyncOperationHandle<ScriptableObject> handle) {
-        if (handle.Status == AsyncOperationStatus.Succeeded) {
-            if (gameInstanceRef.IsDebuggingEnabled())
-                Log("SoundSystem finished loading TracksBundle successfully!");
-            canPlayTracks = true;
-        }
-        else if (handle.Status == AsyncOperationStatus.Failed) {
-            Warning("SoundSystem failed to load TracksBundle\nPlaying tracks will not be possible!");
+        if (canPlaySFX && SFXRequests.Count > 0)
+            UpdateSFXRequests();
+        else if (canPlayTracks) {
+            if (fadingIn)
+                UpdateTrackFadeIn();
+            else if (fadingOut)
+                UpdateTrackFadeOut();
+            else
+                UpdateTrackVolume();
         }
     }
-    private void FinishedLoadingSFXBundleCallback(AsyncOperationHandle<ScriptableObject> handle) {
-        if (handle.Status == AsyncOperationStatus.Succeeded) {
-            if (gameInstanceRef.IsDebuggingEnabled())
-                Log("SoundSystem finished loading SFXBundle successfully!");
+    private void SetupReferences() {
+
+        trackAudioSource = GetComponent<AudioSource>();
+        if (!MyUtility.Utility.Validate(trackAudioSource, "Failed to get AudioSource at " + gameObject.name, MyUtility.Utility.ValidationLevel.WARNING)) {
+            canPlaySFX = false;
+            canPlayTracks = false;
+        }
+    }
+    private void ValidateBundles() {
+        if (!sfxBundle) {
+            Debug.LogWarning("SoundManager is missing an SFXBundle - Playing SFX will not be possible!");
+            canPlaySFX = false;
+        }
+        else
             canPlaySFX = true;
+
+        if (!tracksBundle) {
+            Debug.LogWarning("SoundManager is missing a TracksBundle - Playing tracks will not be possible!");
+            canPlayTracks = false;
         }
-        else if (handle.Status == AsyncOperationStatus.Failed) {
-            Warning("SoundSystem failed to load SFXBundle\nPlaying SFX will not be possible!");
+        else
+            canPlayTracks = true;
+    }
+    private void LoadAssets() {
+        loadingAssets = false;
+        if (canPlaySFX) {
+            LoadSFXBundle();
+            loadingAssets = true;
+        }
+        if (canPlayTracks) {
+            LoadTracksBundle();
+            loadingAssets = true;
+        }
+
+        if (loadingAssets)
+            Debug.Log("SoundManager started loading assets!");
+    }
+    private void LoadSFXBundle() {
+        foreach (var asset in sfxBundle.entries) {
+            AsyncOperationHandle<AudioClip> Handle = Addressables.LoadAssetAsync<AudioClip>(asset.clip);
+            Handle.Completed += AssetLoadedCallback;
+            loadedSFXClips.Add(asset.key, Handle);
+        }
+
+        loadingSFXAssets = true;
+    }
+    private void LoadTracksBundle() {
+        foreach (var asset in tracksBundle.entries) {
+            AsyncOperationHandle<AudioClip> Handle = Addressables.LoadAssetAsync<AudioClip>(asset.clip);
+            Handle.Completed += AssetLoadedCallback;
+            loadedTracksClips.Add(asset.key, Handle);
+        }
+
+        loadingTracksAssets = true;
+    }
+    private void UnloadAllAssets() {
+        foreach (var entry in loadedSFXClips)
+            Addressables.Release(entry.Value);
+
+        foreach (var entry in loadedTracksClips)
+            Addressables.Release(entry.Value);
+
+        Debug.Log("SoundManager successfully unloaded all resources");
+    }
+
+    private void AssetLoadedCallback(UnityEngine.ResourceManagement.AsyncOperations.AsyncOperationHandle<AudioClip> handle) {
+        if (handle.Status == AsyncOperationStatus.Succeeded)
+            Debug.Log("Successfully loaded " + handle.Result.ToString());
+        else
+            Debug.Log("Failed to load " + handle.Result.ToString());
+    }
+
+    private void CheckAssetsLoadingStatus() {
+        if (!loadingAssets)
+            return;
+
+        bool Results = true;
+        if (loadingSFXAssets)
+            Results &= HasFinishedLoadingSFX();
+        if (loadingTracksAssets)
+            Results &= HasFinishedLoadingTracks();
+
+        if (Results) {
+            loadingAssets = false; //??? it was true
+            Debug.Log("SoundManager finished loading assets!");
+        }
+        //Also confirm if this is usable or not
+        //Rework validate bundles into this function and the loadAssets one then!
+    }
+    private bool HasFinishedLoadingSFX() {
+        bool status = true;
+        foreach (var asset in loadedSFXClips) {
+            if (asset.Value.Status != AsyncOperationStatus.Succeeded)
+                status = false;
+        }
+
+        loadingSFXAssets = !status;
+        return status;
+    }
+    private bool HasFinishedLoadingTracks() {
+        bool status = true;
+        foreach (var asset in loadedTracksClips) {
+            if (asset.Value.Status != AsyncOperationStatus.Succeeded)
+                status = false;
+        }
+
+        loadingTracksAssets = !status;
+        return status;
+    }
+
+
+
+    public bool PlaySFX(string key, bool newUnit = false, GameObject owner = null) {
+        if (!canPlaySFX) {
+            Debug.LogWarning("SoundManager can not play SFX! - PlaySFX will always fail!");
+            return false;
+        }
+
+        if (loadingSFXAssets) {
+            Debug.LogWarning("PlaySFX request rejected due to sfx assets being in the loading process!");
+            return false;
+        }
+
+        if (!newUnit) {
+            SFXRequest? request = FindSFXRequest(owner, key);
+            if (request != null)
+                return false;
+        }
+
+        SFXEntry? targetSFXEntry = FindSFXEntry(key);
+        if (targetSFXEntry == null) {
+            Debug.Log("Unable to find sfx entry associated with key " + key);
+            return false;
+        }
+
+        AudioClip targetAudioClip = FindSFXAudioClip(key);
+        if (targetAudioClip == null) {
+            Debug.Log("Unable to find audio clip associated with key " + key);
+            return false;
+        }
+
+        AudioSource availableAudioSource = GetAvailableAudioSource();
+        if (!availableAudioSource) {
+            Debug.LogWarning("Unable to find available audio source to play sfx associated with key " + key);
+            return false;
+        }
+
+        float volume = masterVolume * sfxVolume * targetSFXEntry.Value.volume;
+        availableAudioSource.clip = targetAudioClip;
+        availableAudioSource.volume = volume;
+        availableAudioSource.pitch = GetRandomizedPitch(targetSFXEntry.Value.minPitch, targetSFXEntry.Value.maxPitch);
+        availableAudioSource.Play();
+
+        if (!newUnit)
+            AddSFXRequest(owner, key, availableAudioSource);
+
+        return true;
+    }
+    public bool PlayTrack(string key, bool fade = false) {
+        if (!canPlayTracks) {
+            Debug.LogWarning("SoundManager can not play tracks! - PlayTrack will always fail!");
+            return false;
+        }
+        if (loadingTracksAssets) {
+            //Debug.LogWarning("PlayTrack request rejected due to tracks assets being in the loading process!");
+            return false;
+        }
+
+        if (currentPlayingTrackKey == key)
+            return true;
+
+        TrackEntry? targetTrackEntry = FindTrackEntry(key);
+        if (targetTrackEntry == null) {
+            Debug.Log("Unable to find track entry " + key + " to play");
+            return false;
+        }
+
+        if (!fade)
+            return ApplyTrack((TrackEntry)targetTrackEntry);
+
+        //Very confusing and could be done better.
+        if (canInterruptFade) {
+            if (fadingIn || fadingOut) {
+                fadingIn = false;
+                fadingOut = false;
+                fadeTargetTrack = null;
+                return ApplyTrack((TrackEntry)targetTrackEntry);
+            }
+        }
+
+        if (fadingIn) //For book-keeping consistency.
+            fadingIn = false;
+
+        fadeTargetTrack = targetTrackEntry;
+        if (!trackAudioSource.isPlaying) {
+            currentTrackVolume = 0.0f;
+            StartFadeIn((TrackEntry)targetTrackEntry);
+        }
+        else
+            StartFadeOut();
+
+        return true;
+    }
+    public void StopTrack(bool fade = false) {
+        if (!trackAudioSource.isPlaying)
+            return;
+
+        //Confusing and could be done better.
+        if (fadingIn) {
+            fadingIn = false;
+            fadeTargetTrack = null;
+        }
+
+        if (fadingOut) {
+            fadingOut = false;
+            fadeTargetTrack = null;
+        }
+
+        if (fade)
+            StartFadeOut();
+        else
+            trackAudioSource.Stop();
+    }
+
+
+
+    public void SetMasterVolume(float value) {
+        masterVolume = value;
+    }
+    public void SetMusicVolume(float value) {
+        musicVolume = value;
+    }
+    public void SetSFXVolume(float value) {
+        sfxVolume = value;
+    }
+    public float GetMasterVolume() {
+        return masterVolume;
+    }
+    public float GetMusicVolume() {
+        return musicVolume;
+    }
+    public float GetSFXVolume() {
+        return sfxVolume;
+    }
+
+
+    private void UpdateTrackFadeIn() {
+        if (currentTrackVolume >= currentTrackEntryVolume)
+            return;
+
+        currentTrackVolume += fadeInSpeed * Time.deltaTime;
+        trackAudioSource.volume = currentTrackVolume * masterVolume * musicVolume;
+        if (currentTrackVolume >= currentTrackEntryVolume) {
+            currentTrackVolume = currentTrackEntryVolume;
+            trackAudioSource.volume = currentTrackVolume * masterVolume * musicVolume;
+            fadingIn = false;
         }
     }
-    private void FinishedLoadingAudioClipCallback(AsyncOperationHandle<AudioClip> handle) {
-        if (handle.Status == AsyncOperationStatus.Succeeded) {
-            if (gameInstanceRef.IsDebuggingEnabled())
-                Log("SoundSystem loaded audio clip [" + handle.Result.name + "] successfully!");
+    private void UpdateTrackFadeOut() {
+        if (currentTrackEntryVolume <= 0.0f)
+            return;
+
+        currentTrackVolume -= fadeOutSpeed * Time.deltaTime;
+        trackAudioSource.volume = currentTrackVolume * masterVolume * musicVolume;
+        if (currentTrackVolume <= 0.0f) {
+            currentTrackVolume = 0.0f;
+            trackAudioSource.Stop();
+            fadingOut = false;
+            if (fadeTargetTrack != null)
+                StartFadeIn((TrackEntry)fadeTargetTrack);
         }
-        else if (handle.Status == AsyncOperationStatus.Failed)
-            Warning("SoundSystem failed to load [" + handle.Result.name + "]\n Playing this audio clip will be possible!");
+    }
+    private void UpdateTrackVolume() {
+        if (!trackAudioSource.isPlaying)
+            return;
+
+        trackAudioSource.volume = masterVolume * musicVolume * currentTrackEntryVolume;
+    }
+
+
+    private bool ApplyTrack(TrackEntry track) {
+        AudioClip targetAudioClip = FindTrackAudioClip(track.key);
+        if (!targetAudioClip)
+            return false;
+
+        trackAudioSource.clip = targetAudioClip;
+        currentPlayingTrackKey = track.key;
+        currentTrackEntryVolume = track.volume;
+        trackAudioSource.volume = masterVolume * musicVolume * currentTrackEntryVolume;
+        trackAudioSource.pitch = track.pitch;
+        trackAudioSource.Play();
+
+        return true;
+    }
+    private void StartFadeOut() {
+        fadingOut = true;
+    }
+    private void StartFadeIn(TrackEntry track) {
+        ApplyTrack(track);
+        fadingIn = true;
+    }
+
+
+
+    private float GetRandomizedPitch(float min, float max) {
+        if (min == max)
+            return max;
+        if (min > max)
+            (max, min) = (min, max);
+
+        return UnityEngine.Random.Range(min, max);
+    }
+    private AudioSource AddSoundUnit() {
+        if (soundUnits.Count >= soundUnitsLimit) {
+            Debug.LogWarning("Unable to add new audio source! \n Audio sources limit reached!");
+            return null;
+        }
+
+        if (soundUnits.Count == 0)
+            units = new GameObject("Units");
+
+        var gameObject = new GameObject("AudioSource " + soundUnits.Count);
+        var comp = gameObject.AddComponent<AudioSource>();
+        gameObject.transform.SetParent(units.transform);
+        comp.loop = false;
+        comp.playOnAwake = false;
+        soundUnits.Add(comp);
+        return comp;
+    }
+    private void AddSFXRequest(GameObject owner, string key, AudioSource unit) {
+        var newSFXRequest = new SFXRequest {
+            unit = unit,
+            key = key,
+            owner = owner
+        };
+        SFXRequests.Add(newSFXRequest);
+    }
+    private AudioSource GetAvailableAudioSource() {
+        if (soundUnits.Count == 0)
+            return AddSoundUnit();
+
+        foreach (var entry in soundUnits) {
+            if (!entry.isPlaying)
+                return entry;
+        }
+
+        return AddSoundUnit();
+    }
+
+
+    private AudioClip FindSFXAudioClip(string key) {
+        if (key == null)
+            return null;
+
+        if (loadedSFXClips.Count == 0)
+            return null;
+
+        foreach (var entry in loadedSFXClips) {
+            if (entry.Key == key) {
+                if (entry.Value.Status == AsyncOperationStatus.Failed) {
+                    Debug.LogError("Unable to find SFX clip '" + key + "' due to it being unsuccessfully loaded!");
+                    return null;
+                }
+                return entry.Value.Result;
+            }
+        }
+
+        return null;
+    }
+    private AudioClip FindTrackAudioClip(string key) {
+        if (key == null)
+            return null;
+
+        if (loadedTracksClips.Count == 0)
+            return null;
+
+        foreach (var entry in loadedTracksClips) {
+            if (entry.Key == key) {
+                if (entry.Value.Status == AsyncOperationStatus.Failed) {
+                    Debug.LogError("Unable to find Track clip '" + key + "' due to it being unsuccessfully loaded!");
+                    return null;
+                }
+                return entry.Value.Result;
+            }
+        }
+
+        return null;
+    }
+    private SFXEntry? FindSFXEntry(string key) {
+        if (key == null)
+            return null;
+
+        if (sfxBundle.entries.Length == 0)
+            return null;
+
+        foreach (var entry in sfxBundle.entries) {
+            if (entry.key == key) {
+                return entry; //Need to get SFXEntry data and clip individually
+            }
+        }
+
+        return null;
+    }
+    private TrackEntry? FindTrackEntry(string key) {
+        if (key == null)
+            return null;
+
+        if (tracksBundle.entries.Length == 0)
+            return null;
+
+        foreach (var entry in tracksBundle.entries) {
+            if (entry.key == key)
+                return entry;
+        }
+
+        return null;
+    }
+    private SFXRequest? FindSFXRequest(GameObject owner, string key) {
+        foreach (var entry in SFXRequests) {
+            if (entry.key == key && entry.owner == owner)
+                return entry;
+        }
+
+        return null;
+    }
+
+    private void UpdateSFXRequests() {
+        List<SFXRequest> requests = new List<SFXRequest>();
+        foreach (var entry in SFXRequests) { //??
+            if (!entry.unit.isPlaying)
+                requests.Add(entry);
+        }
+
+        foreach (var request in requests)
+            SFXRequests.Remove(request);
     }
 }

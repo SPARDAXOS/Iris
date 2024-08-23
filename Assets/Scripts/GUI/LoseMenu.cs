@@ -1,18 +1,21 @@
+using Initialization;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class LoseMenu : MonoBehaviour
-{
-    // Start is called before the first frame update
-    void Start()
-    {
-        
+public class LoseMenu : Entity {
+
+    public override void Initialize(GameInstance game) {
+        if (initialized)
+            return;
+
+        gameInstanceRef = game;
+        initialized = true;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+
+    public void QuitButton() {
+        //gameInstanceRef.GetSoundSystem().PlaySFX("ButtonCancel");
+        gameInstanceRef.InterruptGame();
     }
 }

@@ -107,12 +107,6 @@ MonoBehaviour:
     m_SerializedLabels:
     - Essential
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: a04851226c41d3a4da99924257d05ff1
-    m_Address: Assets/Prefabs/Levels/MainLevel.prefab
-    m_ReadOnly: 0
-    m_SerializedLabels:
-    - LevelsBundle
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: a595f86ef4fd63741ad93ede935d0e5a
     m_Address: Assets/Prefabs/Entities/Player2.prefab
     m_ReadOnly: 0

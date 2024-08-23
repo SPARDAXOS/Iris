@@ -1,18 +1,28 @@
+using Initialization;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WinMenu : MonoBehaviour
-{
-    // Start is called before the first frame update
-    void Start()
-    {
-        
+public class WinMenu : Entity {
+    public override void Initialize(GameInstance game) {
+        if (initialized)
+            return;
+
+        gameInstanceRef = game;
+        initialized = true;
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
+    public void PlayButton() {
+        if (Netcode.IsHost())
+            gameInstanceRef.RestartGame();
+        else {
+            RPCManagement management = gameInstanceRef.GetRPCManagement();
+            management.RequestGameRestartServerRpc(Netcode.GetClientID());
+        }
+        //gameInstanceRef.GetSoundSystem().PlaySFX("ButtonConfirm");
+    }
+    public void QuitButton() {
+        //gameInstanceRef.GetSoundSystem().PlaySFX("ButtonCancel");
+        gameInstanceRef.QuitApplication();
     }
 }

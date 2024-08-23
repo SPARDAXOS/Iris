@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
 using static GameInstance;
@@ -22,8 +23,6 @@ public class RPCManagement : NetworkedEntity {
             return;
 
 
-
-
     }
     private ClientRpcParams? CreateClientRpcParams(ulong senderID) {
         Netcode netcodeRef = gameInstanceRef.GetNetcode();
@@ -41,44 +40,130 @@ public class RPCManagement : NetworkedEntity {
 
 
 
-    [ServerRpc (RequireOwnership = true)]
+    //Game State
+    //References
+    [ClientRpc]
+    public void RelayPlayerReferenceClientRpc(NetworkObjectReference reference, Player.PlayerID player, ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.SetReceivedPlayerReferenceRpc(reference, player);
+    }
+    [ServerRpc (RequireOwnership = false)]
     public void ConfirmConnectionServerRpc() {
         RelayConnectionConfirmationClientRpc();
     }
     [ClientRpc]
     public void RelayConnectionConfirmationClientRpc() {
         gameInstanceRef.StartGame();
-        //gameInstanceRef.Transition(GameState.ROLE_SELECT_MENU);
     }
 
-    //References
-    [ClientRpc]
-    public void RelayPlayerReferenceClientRpc(NetworkObjectReference reference, Player.PlayerID player, ClientRpcParams clientRpcParameters = default) {
-        gameInstanceRef.SetReceivedPlayerReferenceRpc(reference, player);
+    [ServerRpc(RequireOwnership = false)]
+    public void RequestGameRestartServerRpc(ulong senderID) {
+        ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+        if (clientRpcParams == null)
+            return;
+
+        RelayGameRestartRequestClientRpc((ClientRpcParams)clientRpcParams);
     }
+    [ClientRpc]
+    public void RelayGameRestartRequestClientRpc(ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.RestartGame();
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void RestartGameServerRpc(ulong senderID) {
+        ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+        if (clientRpcParams == null)
+            return;
+
+        RelayRestartGameClientRpc((ClientRpcParams)clientRpcParams);
+    }
+    [ClientRpc]
+    public void RelayRestartGameClientRpc(ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.RestartGame();
+    }
+
+
+    //[ServerRpc(RequireOwnership = false)]
+    //public void UpdateMatchResultsServerRpc(MatchResults results, ulong senderID) {
+    //    ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+    //    if (clientRpcParams == null)
+    //        return;
+
+    //    RelayMatchResultsClientRpc(results, (ClientRpcParams)clientRpcParams);
+    //}
+    //[ClientRpc]
+    //public void RelayMatchResultsClientRpc(MatchResults results, ClientRpcParams clientRpcParameters = default) {
+    //    gameInstanceRef.ProcessMatchResults(results);
+    //}
+
+
 
 
 
     //Input
     [ServerRpc(RequireOwnership = false)]
     public void CalculatePlayer2PositionServerRpc(float input) {
-        gameInstanceRef.ProccessPlayer2MovementRpc(input);
+        gameInstanceRef.ProcessPlayer2MovementRpc(input);
     }
 
 
 
-    //[ServerRpc(RequireOwnership = false)]
-    //public void SetBoostStateServerRpc(ulong senderID, bool state) {
-    //    ClientRpcParams? clientParams = CreateClientRpcParams(senderID);
-    //    if (clientParams == null) {
-    //        Warning("Invalid client rpc params returned at UpdateReadyCheckServerRpc");
-    //        return;
-    //    }
+    //Animations
+    [ServerRpc(RequireOwnership = false)]
+    public void NotifyMovementAnimationStateServerRpc(bool state) {
+        gameInstanceRef.ProcessPlayer2MovementAnimationState(state);
+    }
 
-    //    RelayBoostStateClientRpc(senderID, state, clientParams.Value);
-    //}
-    //[ClientRpc]
-    //public void RelayBoostStateClientRpc(ulong senderID, bool state, ClientRpcParams paramsPack) {
-    //    gameInstanceRef.GetPlayer().GetDaredevilData().SetBoostState(state);
-    //}
+
+
+    //HUD
+    [ServerRpc(RequireOwnership = false)]
+    public void UpdatePlayerHealthServerRpc(float amount, Player.PlayerID playerID, ulong senderID) {
+        ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+        if (clientRpcParams == null)
+            return;
+
+        RelayPlayerHealthClientRpc(amount, playerID, (ClientRpcParams)clientRpcParams);
+    }
+    [ClientRpc]
+    public void RelayPlayerHealthClientRpc(float amount, Player.PlayerID playerID, ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.ProcessPlayerHealthRpc(amount, playerID);
+    }
+
+
+
+
+
+    //Sprite Orientation
+    [ServerRpc(RequireOwnership = false)]
+    public void UpdateSpriteOrientationServerRpc(bool flipX, ulong senderID) {
+        ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+        if (clientRpcParams == null)
+            return;
+
+        RelaySpriteOrientationClientRpc(flipX, (ClientRpcParams)clientRpcParams);
+    }
+    [ClientRpc]
+    public void RelaySpriteOrientationClientRpc(bool flipX, ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.ProcessPlayerSpriteOrientation(flipX);
+    }
+
+
+
+  
+
+
+
+    //Chat
+    [ServerRpc(RequireOwnership = false)]
+    public void SendChatMessageServerRpc(FixedString32Bytes message, ulong senderID) {
+        ClientRpcParams? clientRpcParams = CreateClientRpcParams(senderID);
+        if (clientRpcParams == null)
+            return;
+
+        RelayChatMessageClientRpc(message, (ClientRpcParams)clientRpcParams);
+    }
+    [ClientRpc]
+    public void RelayChatMessageClientRpc(FixedString32Bytes message, ClientRpcParams clientRpcParameters = default) {
+        gameInstanceRef.ProcessReceivedChatMessage(message.ToString());
+    }
 }

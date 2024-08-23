@@ -182,6 +182,9 @@ public class Netcode : Entity {
     public RelayManager GetRelayManager() { return relayManager; }
     public int GetConnectedClientsCount() { return networkManagerRef.ConnectedClients.Count; }
     public static ulong GetClientID() { return NetworkManager.Singleton.LocalClientId; }
+    public static bool IsHost() {  return NetworkManager.Singleton.IsHost; }
+    public static bool IsClient() {  return NetworkManager.Singleton.IsClient; }
+    public static bool IsRunning() { return NetworkManager.Singleton.IsListening; }
     public ulong GetOtherClient(ulong id) {
         foreach(var client in networkManagerRef.ConnectedClientsIds) {
             if (id != client)
@@ -190,9 +193,7 @@ public class Netcode : Entity {
         return id;
     }
     public bool IsDebugLogEnabled() { return enableNetworkLog; }
-    public bool IsHost() { return networkManagerRef.IsHost; }
-    public bool IsClient() { return networkManagerRef.IsClient; }
-    public bool IsRunning() { return networkManagerRef.IsListening; }
+
 
 
     //Callbacks

@@ -18,16 +18,17 @@ TagManager:
   - MainHUD
   - Player1
   - Player2
+  - PickupSpawner
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Ground
   - Water
   - UI
-  - 
-  - 
-  - 
+  - Projectile
+  - Pickup
+  - Player
   - 
   - 
   - 

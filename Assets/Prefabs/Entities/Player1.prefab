@@ -17,7 +17,7 @@ GameObject:
   - component: {fileID: 4323825285824335578}
   - component: {fileID: 6870068203923995077}
   - component: {fileID: 2459721342301074802}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Player1
   m_TagString: Player1
   m_Icon: {fileID: 0}
@@ -34,7 +34,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -80,8 +80,8 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 10905, guid: 0000000000000000f000000000000000, type: 0}
-  m_Color: {r: 0, g: 0.32709217, b: 1, a: 1}
+  m_Sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  m_Color: {r: 0.05440283, g: 0, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
@@ -127,14 +127,14 @@ MonoBehaviour:
   UseUnreliableDeltas: 1
   SyncPositionX: 1
   SyncPositionY: 1
-  SyncPositionZ: 1
-  SyncRotAngleX: 1
-  SyncRotAngleY: 1
-  SyncRotAngleZ: 1
+  SyncPositionZ: 0
+  SyncRotAngleX: 0
+  SyncRotAngleY: 0
+  SyncRotAngleZ: 0
   SyncScaleX: 0
   SyncScaleY: 0
   SyncScaleZ: 0
-  PositionThreshold: 0.001
+  PositionThreshold: 0.1
   RotAngleThreshold: 0.01
   ScaleThreshold: 0.01
   UseQuaternionSynchronization: 0
@@ -157,13 +157,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   healthCap: 100
   startingHealth: 100
-  accelerationSpeed: 5
-  decelerationSpeed: 5
-  maxSpeed: 10
+  accelerationSpeed: 10
+  decelerationSpeed: 20
+  maxSpeed: 5
   currentHealth: 0
   currentSpeed: 0
   inputDirection: {x: 0, y: 0}
-  velocity: {x: 0, y: 0}
+  horizontalVelocity: 0
+  verticalVelocity: 0
   movingRight: 0
   movingLeft: 0
 --- !u!50 &1918414916651520028
@@ -237,7 +238,7 @@ BoxCollider2D:
   m_IsTrigger: 0
   m_UsedByEffector: 0
   m_UsedByComposite: 0
-  m_Offset: {x: 0, y: 0}
+  m_Offset: {x: 0.0017218143, y: 0.0008609295}
   m_SpriteTilingProperty:
     border: {x: 0.049999997, y: 0.049999997, z: 0.049999997, w: 0.049999997}
     pivot: {x: 0.5, y: 0.5}
@@ -248,7 +249,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 1
   serializedVersion: 2
-  m_Size: {x: 0.44, y: 0.7}
+  m_Size: {x: 0.16106504, y: 0.16451383}
   m_EdgeRadius: 0
 --- !u!95 &2459721342301074802
 Animator:
@@ -260,7 +261,7 @@ Animator:
   m_GameObject: {fileID: 5981564049613529622}
   m_Enabled: 1
   m_Avatar: {fileID: 0}
-  m_Controller: {fileID: 9100000, guid: 0b21390bdcb770244b9a006947bdaad7, type: 2}
+  m_Controller: {fileID: 0}
   m_CullingMode: 0
   m_UpdateMode: 0
   m_ApplyRootMotion: 0

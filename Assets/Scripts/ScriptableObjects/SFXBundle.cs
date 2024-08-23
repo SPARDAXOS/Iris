@@ -7,13 +7,16 @@ using UnityEngine.AddressableAssets;
 [Serializable]
 public struct SFXEntry {
     public string key;
-    public AssetReference clip;
-    [Range(0.01f, 1.0f)] public float volume;
-    [Range(-3.0f, 3.0f)] public float minPitch;
-    [Range(-3.0f, 3.0f)] public float maxPitch;
+    public AssetReferenceT<AudioClip> clip;
+    [Range(0.0f, 1.0f)] public float volume;
+    [Range(0.0f, 2.0f)] public float minPitch;
+    [Range(0.0f, 2.0f)] public float maxPitch;
 }
-[CreateAssetMenu(fileName = "SFXBundle", menuName = "Sound/SFXBundle", order = 1)]
+
+[CreateAssetMenu(fileName = "SFXBundle", menuName = "Data/SFXBundle", order = 9)]
 public class SFXBundle : ScriptableObject {
 
-    [SerializeField] public SFXEntry[] entries;
+    public SFXEntry[] entries = null;
 }
+
+

@@ -8,6 +8,7 @@ using Unity.Services.Authentication;
 using UnityEngine.EventSystems;
 using Unity.Netcode;
 using Unity.VisualScripting;
+using static Player;
 
 public class GameInstance : MonoBehaviour {
 
@@ -93,9 +94,12 @@ public class GameInstance : MonoBehaviour {
     private MainCamera mainCameraScript;
     private Netcode netcodeScript;
     private MainMenu mainMenuScript;
+    private WinMenu winMenuScript;
+    private LoseMenu loseMenuScript;
     private ConnectionMenu connectionMenuScript;
     private FadeTransition fadeTransitionScript;
     private LoadingScreen loadingScreenScript;
+
 
 
 
@@ -112,8 +116,6 @@ public class GameInstance : MonoBehaviour {
             return;
         }
 
-        //Loading bundles could be completely skipped
-        //Look into other loading strategies and read sebastians notes
         SetupApplicationInitialSettings();
         initializationInProgress = true;
         levelManagementScript.Initialize(this); //So it starts loading level bundle concurrently.
@@ -220,11 +222,15 @@ public class GameInstance : MonoBehaviour {
             if (debugging)
                 Log("Started creating " + asset.name + " entity");
             loseMenu = Instantiate(asset);
+            loseMenuScript = loseMenu.GetComponent<LoseMenu>();
+            loseMenuScript.Initialize(this);
         }
         else if (asset.CompareTag("WinMenu")) {
             if (debugging)
                 Log("Started creating " + asset.name + " entity");
             winMenu = Instantiate(asset);
+            winMenuScript = winMenu.GetComponent<WinMenu>();
+            winMenuScript.Initialize(this);
         }
         else if (asset.CompareTag("MainHUD")) {
             if (debugging)
@@ -278,7 +284,7 @@ public class GameInstance : MonoBehaviour {
 
 #endif
     }
-    //This is kinda problamatic consedering i cant free the resources from here! cause its static
+
     public void QuitApplication(object message = null) {
         UnloadResources();
 #if UNITY_EDITOR
@@ -303,17 +309,14 @@ public class GameInstance : MonoBehaviour {
         //-Release resources
 
 
-        //ADD THE REST OF THE ENTITIES ! CLEAN UP
-
-        //Needs reworking after networking solution
-        if (player1Script) //Temp
-            player1Script.CleanUp("Player cleaned up successfully!");
-
+        if (player1Script) 
+            player1Script.CleanUp("Player 1 cleaned up successfully!");
+        if (player2Script)
+            player2Script.CleanUp("Player 2 cleaned up successfully!");
 
         mainCameraScript.CleanUp("MainCamera cleaned up successfully!");
         soundSystemScript.CleanUp("SoundSystem cleaned up successfully!");
         levelManagementScript.CleanUp();
-
 
         //Needed to guarantee destruction of all entities before attempting to release resources.
         ValidateAndDestroy(player1);
@@ -334,18 +337,8 @@ public class GameInstance : MonoBehaviour {
         ValidateAndDestroy(winMenu);
         ValidateAndDestroy(loseMenu);
 
-        //ADD REST OF THE MENUS!
-
-
-
         if (debugging)
             Log("Destroyed all entities successfully!");
-
-        //TODO: Add messages for each of these two
-
-
-
-
 
         if (loadedAssetsHandle.IsValid()) {
             Addressables.Release(loadedAssetsHandle);
@@ -406,6 +399,7 @@ public class GameInstance : MonoBehaviour {
         initializationInProgress = false;
         currentApplicationStatus = ApplicationStatus.RUNNING;
         SetGameState(GameState.MAIN_MENU);
+
         if (debugging)
             Log("Game successfully initialized!");
     }
@@ -506,7 +500,7 @@ public class GameInstance : MonoBehaviour {
 
     public void PauseGame() {
         gamePaused = true;
-
+        //Put on the menu
     }
     public void UnpauseGame() {
         gamePaused = false;
@@ -521,7 +515,6 @@ public class GameInstance : MonoBehaviour {
         SetCursorState(true);
         mainMenu.SetActive(true);
         SetApplicationTargetFrameRate(menusFrameTarget);
-
     }
     private void SetupConnectionMenuState() {
         currentGameState = GameState.CONNECTION_MENU;
@@ -541,17 +534,7 @@ public class GameInstance : MonoBehaviour {
 
         mainHUD.SetActive(true);
 
-        if (player1Script)
-            player1Script.SetNetworkedEntityState(true);
-        if (player2Script)
-            player2Script.SetNetworkedEntityState(true);
-
-        if (netcodeScript.IsHost()) {
-            player1Script.SetupStartingState();
-            player2Script.SetupStartingState();
-
-            player1Script.SetPlayerID(Player.PlayerID.PLAYER_1);
-            player2Script.SetPlayerID(Player.PlayerID.PLAYER_2);
+        if (Netcode.IsHost()) {
 
             Level currentLoadedLevel = levelManagementScript.GetCurrentLoadedLevel();
             Vector3 player1SpawnPosition = currentLoadedLevel.GetPlayer1SpawnPoint();
@@ -563,9 +546,13 @@ public class GameInstance : MonoBehaviour {
             clientRpcParams.Send = new ClientRpcSendParams { TargetClientIds = new ulong[] { player2NetworkObject.OwnerClientId } };
             rpcManagementScript.RelayPlayerReferenceClientRpc(player1, Player.PlayerID.PLAYER_1, clientRpcParams);
             rpcManagementScript.RelayPlayerReferenceClientRpc(player2, Player.PlayerID.PLAYER_2, clientRpcParams);
-        }
 
-        //Enable controls! turn on and enable huds for each (SetActive(true) pretty much)
+            player1Script.SetupStartingState();
+            player2Script.SetupStartingState();
+
+            player1Script.SetNetworkedEntityState(true);
+            player2Script.SetNetworkedEntityState(true);
+        }
     }
     private void SetupWinMenuState() {
         currentGameState = GameState.WIN_MENU;
@@ -601,6 +588,7 @@ public class GameInstance : MonoBehaviour {
         if (player2Script)
             player2Script.Tick();
 
+        mainHUDScript.Tick();
         levelManagementScript.Tick();
     }
     private void UpdateFixedPlayingState() {
@@ -613,12 +601,11 @@ public class GameInstance : MonoBehaviour {
     }
 
 
-
     public bool StartGame() {
         if (!levelManagementScript.LoadLevel("NormalLevel")) //Hardcoded Level
             return false;
 
-        fadeTransitionScript.StartTransition(SetupStartState); //Will probably be swtiched or combines with loading screen
+        fadeTransitionScript.StartTransition(SetupStartState);
         gameStarted = true;
         return true;
     }
@@ -626,7 +613,7 @@ public class GameInstance : MonoBehaviour {
         if (!levelManagementScript.LoadLevel(levelName))
             return false;
 
-        fadeTransitionScript.StartTransition(SetupStartState); //Will probably be swtiched or combines with loading screen
+        fadeTransitionScript.StartTransition(SetupStartState);
         gameStarted = true;
         return true;
     }
@@ -638,10 +625,13 @@ public class GameInstance : MonoBehaviour {
         gameStarted = false;
         mainHUD.SetActive(false);
 
-        if (player1)
-            Destroy(player1);
-        if (player2)
-            Destroy(player2);
+        if (Netcode.IsHost()) {
+            if (player1)
+                Destroy(player1);
+            if (player2)
+                Destroy(player2);
+        }
+
 
         player1 = null;
         player2 = null;
@@ -649,15 +639,52 @@ public class GameInstance : MonoBehaviour {
         player2Script = null;
         player1NetworkObject = null;
         player2NetworkObject = null;
-        
+
 
         if (gamePaused)
             UnpauseGame();
 
-        //Should also do some clean ups that i forgot where.
-        //-I put a comment regarding it there tho.
-
+        netcodeScript.StopNetworking();
+        gameStarted = false;
         Transition(GameState.MAIN_MENU);
+    }
+    private void EndGame() {
+
+        SetCursorState(true);
+        mainHUD.SetActive(false);
+
+        //Note: Set game results and send results rpc to clients.
+
+        gameStarted = false;
+    }
+    public void RestartGame() {
+        if (gameStarted) {
+            Warning("Attempted to restart before gamestartd");
+            return;
+        }
+
+        if (Netcode.IsHost()) {
+            rpcManagementScript.RestartGameServerRpc(Netcode.GetClientID());
+
+            Level currentLoadedLevel = levelManagementScript.GetCurrentLoadedLevel();
+            Vector3 player1SpawnPosition = currentLoadedLevel.GetPlayer1SpawnPoint();
+            Vector3 player2SpawnPosition = currentLoadedLevel.GetPlayer2SpawnPoint();
+            player1.transform.position = player1SpawnPosition;
+            player2.transform.position = player2SpawnPosition;
+        }
+
+
+
+        player1Script.SetupStartingState();
+        player2Script.SetupStartingState();
+
+        HideAllMenus();
+        SetCursorState(false);
+        mainHUD.SetActive(true);
+
+        gameStarted = true;
+        currentGameState = GameState.PLAYING;
+        soundSystemScript.PlayTrack("GameplayTrack", true);
     }
 
 
@@ -672,10 +699,7 @@ public class GameInstance : MonoBehaviour {
         loseMenu.SetActive(false);
         connectionMenu.SetActive(false);
         pauseMenu.SetActive(false);
-        //? huds?
     }
-
-
     public bool IsDebuggingEnabled() { return debugging; }
     public void SetCursorState(bool state) {  
         Cursor.visible = state;
@@ -693,6 +717,10 @@ public class GameInstance : MonoBehaviour {
         
         player1Script = player1.GetComponent<Player>();
         Validate(player1Script, "Player1 component is missing on entity!", ValidationLevel.ERROR, true);
+
+        player1Script.SetMainHUDRef(mainHUDScript);
+        player1Script.SetPlayerID(Player.PlayerID.PLAYER_1);
+
         player1Script.Initialize(this);
         player1Script.SetNetworkedEntityState(false);
 
@@ -707,6 +735,10 @@ public class GameInstance : MonoBehaviour {
 
         player2Script = player2.GetComponent<Player>();
         Validate(player2Script, "Player2 component is missing on entity!", ValidationLevel.ERROR, true);
+
+        player2Script.SetMainHUDRef(mainHUDScript);
+        player2Script.SetPlayerID(Player.PlayerID.PLAYER_2);
+
         player2Script.Initialize(this);
         player2Script.SetNetworkedEntityState(false);
 
@@ -715,6 +747,9 @@ public class GameInstance : MonoBehaviour {
 
         player2NetworkObject.SpawnWithOwnership(id);
     }
+
+
+    //RPC Processing
     public void SetReceivedPlayerReferenceRpc(NetworkObjectReference reference, Player.PlayerID id) {
         if (id == Player.PlayerID.NONE)
             return;
@@ -724,31 +759,84 @@ public class GameInstance : MonoBehaviour {
             player1.name = "NetworkedPlayer_1";
             player1NetworkObject = player1.GetComponent<NetworkObject>();
             player1Script = player1.GetComponent<Player>();
-            player1Script.Initialize(this);
             player1Script.SetPlayerID(id);
-            player1Script.SetNetworkedEntityState(false);
+            player1Script.SetMainHUDRef(mainHUDScript);
+            player1Script.Initialize(this);
+            player1Script.SetupStartingState();
         }
         else if (!player2 && id == Player.PlayerID.PLAYER_2) {
             player2 = reference;
             player2.name = "NetworkedPlayer_2";
             player2NetworkObject = player2.GetComponent<NetworkObject>();
             player2Script = player2.GetComponent<Player>();
-            player2Script.Initialize(this);
             player2Script.SetPlayerID(id);
-            player2Script.SetNetworkedEntityState(false);
+            player2Script.SetMainHUDRef(mainHUDScript);
+            player2Script.Initialize(this);
+            player2Script.SetupStartingState();
         }
     }
-    public void ProccessPlayer2MovementRpc(float input) {
+    public void ProcessPlayer2MovementRpc(float input) {
         if (player2Script)
             player2Script.ProcessMovementInputRpc(input);
     }
+    public void ProcessPlayer2MovementAnimationState(bool state) {
+        if (player2Script)
+            player2Script.SetMovementAnimationState(state);
+    }
+    public void ProcessReceivedChatMessage(string message) {
+        mainHUDScript.AddReceivedChatMessage(message);
+    }
+    public void ProcessPlayerSpriteOrientation(bool flipX) {
+        if (Netcode.IsHost())
+            player2Script.ProcessSpriteOrientationRpc(flipX);
+        else
+            player1Script.ProcessSpriteOrientationRpc(flipX);
+    }
+    public void ProcessPlayerHealthRpc(float amount, Player.PlayerID playerID) {
+        if (Netcode.IsHost() || playerID == PlayerID.NONE)
+            return;
+
+        mainHUDScript.UpdatePlayerHealth(amount, playerID);
+        if (playerID == PlayerID.PLAYER_1)
+            player1Script.OverrideCurrentHealth(amount);
+        else if (playerID == PlayerID.PLAYER_2)
+            player2Script.OverrideCurrentHealth(amount);
+    }
+    public void ProcessPlayerDeathRpc(Player.PlayerID playerID) {
+        if (playerID == PlayerID.NONE)
+            return;
+
+        if (playerID == PlayerID.PLAYER_1) {
+            if (player1Script)
+                player1Script.Kill();
+        }
+        else if (playerID == PlayerID.PLAYER_2) {
+            if (player2Script)
+                player2Script.Kill();
+        }
+    }
+    //public void ProcessMatchResults(MatchResults results) {
+    //    //if (results == MatchResults.DRAW)
+    //    //    SetGameState(GameState.LOSE_MENU);
+    //    //else if (results == MatchResults.WIN)
+    //    //    SetGameState(GameState.WIN_MENU);
+    //    //else if (results == MatchResults.LOSE)
+    //    //    SetGameState(GameState.LOSE_MENU);
+
+    //    mainHUD.SetActive(false);
+    //    SetCursorState(true);
+    //    gameStarted = false;
+    //}
+
+
 
     //Getters
     public Netcode GetNetcode() { return netcodeScript; }
     public RPCManagement GetRPCManagement() { return rpcManagementScript; }
     public LevelManagement GetLevelManagement() { return levelManagementScript; }
-    public Player GetPlayer() { return player1Script; }
-
+    public Player GetPlayer1() { return player1Script; }
+    public Player GetPlayer2() { return player2Script; }
+    public SoundSystem GetSoundSystem() { return soundSystemScript; }
 
 
 

@@ -7,12 +7,14 @@ using UnityEngine.AddressableAssets;
 [Serializable]
 public struct TrackEntry {
     public string key;
-    public AssetReference clip;
-    [Range(0.01f, 1.0f)] public float volume;
-    [Range(-3.0f, 3.0f)] public float pitch;
+    public AssetReferenceT<AudioClip> clip;
+    [Range(0.0f, 1.0f)] public float volume;
+    [Range(0.0f, 2.0f)] public float pitch;
 }
-[CreateAssetMenu(fileName = "TracksBundle", menuName = "Sound/TracksBundle", order = 0)]
-public class TracksBundle : ScriptableObject {
 
-    [SerializeField] public TrackEntry[] entries;
+[CreateAssetMenu(fileName = "TracksBundle", menuName = "Data/TracksBundle", order = 10)]
+public class TracksBundle : ScriptableObject {
+    public TrackEntry[] entries = null;
 }
+
+

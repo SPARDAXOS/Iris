@@ -140,7 +140,8 @@ public class LevelManagement : ImplementationEntity {
         currentLoadedLevelScript.CleanUp();
         if (currentLoadedLevel)
             GameObject.Destroy(currentLoadedLevel);
-        Addressables.Release(currentLoadedLevelHandle);
+        if (currentLoadedLevelHandle.IsValid())
+            Addressables.Release(currentLoadedLevelHandle);
 
         if (gameInstanceRef.IsDebuggingEnabled())
             Log("Started unloading current level!");

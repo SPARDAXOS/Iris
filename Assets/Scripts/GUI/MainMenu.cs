@@ -14,9 +14,11 @@ public class MainMenu : Entity {
     }
 
     public void PlayButton() {
+        //gameInstanceRef.GetSoundSystem().PlaySFX("ButtonConfirm");
         gameInstanceRef.Transition(GameInstance.GameState.CONNECTION_MENU);
     }
     public void QuitButton() {
+        //gameInstanceRef.GetSoundSystem().PlaySFX("ButtonCancel");
         gameInstanceRef.QuitApplication();
     }
 }
